@@ -1,30 +1,70 @@
 version: "3.9"
 
 services:
-  app:
-    build: .
-    command: bash deployment/entrypoints/app.sh
-    env_file:
-      - ../infra/env/.env.example
-    depends_on:
-      - redis
-      - postgres
-
-  worker:
-    build: .
-    command: bash deployment/entrypoints/worker.sh
-    env_file:
-      - ../infra/env/.env.example
-    depends_on:
-      - redis
-      - postgres
-
-  redis:
-    image: redis:7
-
   postgres:
     image: postgres:15
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command: ["bash", "deployment/entrypoints/app.sh"]
+    env_file:
+      - ../infra/env/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command: ["bash", "deployment/entrypoints/worker.sh"]
+    env_file:
+      - ../infra/env/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command: ["bash", "deployment/entrypoints/scheduler.sh"]
+    env_file:
+      - ../infra/env/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  redis_data:
