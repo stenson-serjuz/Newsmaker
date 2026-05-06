@@ -1,8 +1,10 @@
 from typing import Optional
 
-from core.config.runtime import RuntimeConfig, build_runtime_config
-from core.logging.logger import configure_logging
+from core.config.runtime import RuntimeConfig
 from core.logging.factory import LoggerFactory
+
+from infrastructure.db.pool import PostgresPool
+from infrastructure.redis.client import RedisClient
 
 
 class Container:
@@ -10,26 +12,33 @@ class Container:
         self._config: Optional[RuntimeConfig] = None
         self._logger_factory: Optional[LoggerFactory] = None
 
-    def init_config(self) -> None:
-        self._config = build_runtime_config()
+        self._pg: Optional[PostgresPool] = None
+        self._redis: Optional[RedisClient] = None
 
-    def init_logging(self) -> None:
-        if self._config is None:
-            raise RuntimeError("Config must be initialized before logging")
+    def init_connections(self) -> None:
+        if self._config is None or self._logger_factory is None:
+            raise RuntimeError("Dependencies not initialized")
 
-        configure_logging(self._config.log_level)
+        logger = self._logger_factory.create()
 
-    def init_logger_factory(self) -> None:
-        self._logger_factory = LoggerFactory()
+        self._pg = PostgresPool(
+            dsn=self._config.db_dsn,
+            logger=logger,
+        )
+
+        self._redis = RedisClient(
+            url=self._config.redis_url,
+            logger=logger,
+        )
 
     @property
-    def config(self) -> RuntimeConfig:
-        if self._config is None:
-            raise RuntimeError("Config is not initialized")
-        return self._config
+    def postgres(self) -> PostgresPool:
+        if self._pg is None:
+            raise RuntimeError("Postgres not initialized")
+        return self._pg
 
     @property
-    def logger_factory(self) -> LoggerFactory:
-        if self._logger_factory is None:
-            raise RuntimeError("LoggerFactory is not initialized")
-        return self._logger_factory
+    def redis(self) -> RedisClient:
+        if self._redis is None:
+            raise RuntimeError("Redis not initialized")
+        return self._redis
