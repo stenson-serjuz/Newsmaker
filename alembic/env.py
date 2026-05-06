@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import asyncio
-from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -12,8 +11,8 @@ from alembic import context
 
 config = context.config
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# ❌ REMOVED unsafe fileConfig usage
+# fileConfig(config.config_file_name)
 
 # use env-based DSN
 database_url = os.getenv("POSTGRES_DSN")
@@ -46,7 +45,6 @@ def run_migrations_online():
         async with connectable.connect() as connection:
             await connection.run_sync(run_sync_migrations)
 
-    # ✅ FIX: standalone execution only
     asyncio.run(do_run())
 
 
