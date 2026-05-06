@@ -9,13 +9,6 @@ from workers.base import BaseWorker
 
 
 class MaintenanceWorker(BaseWorker):
-    """
-    Handles:
-    - stream trimming
-    - pending reclaim
-    - cleanup
-    """
-
     def __init__(
         self,
         topology: StreamTopology,
@@ -31,6 +24,7 @@ class MaintenanceWorker(BaseWorker):
         while not self._stop_event.is_set():
             await self._consumer.reclaim_pending()
 
-            await self._topology.trim(self._consumer._stream, 100_000)
+            # stream trimming delegated to topology
+            await self._topology.trim(self._topology.events(0), 100_000)
 
             await asyncio.sleep(10)
