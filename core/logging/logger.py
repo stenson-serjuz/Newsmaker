@@ -5,6 +5,14 @@ from structlog.typing import FilteringBoundLogger
 from core.logging.context import get_trace_id
 
 
+LOG_LEVELS = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+}
+
+
 def add_trace_id(_, __, event_dict):
     trace_id = get_trace_id()
     if trace_id:
@@ -13,9 +21,14 @@ def add_trace_id(_, __, event_dict):
 
 
 def configure_logging(level: str) -> None:
+    if level not in LOG_LEVELS:
+        raise ValueError(f"Invalid log level: {level}")
+
+    log_level = LOG_LEVELS[level]
+
     logging.basicConfig(
         format="%(message)s",
-        level=getattr(logging, level),
+        level=log_level,
     )
 
     structlog.configure(
@@ -28,9 +41,7 @@ def configure_logging(level: str) -> None:
             structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, level)
-        ),
+        wrapper_class=structlog.make_filtering_bound_logger(log_level),
         cache_logger_on_first_use=True,
     )
 
