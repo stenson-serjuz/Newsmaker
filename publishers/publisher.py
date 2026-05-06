@@ -11,14 +11,12 @@ from publishers.delivery_result import DeliveryResult, DeliveryStatus
 
 class Publisher:
     """
-    Responsibilities:
-    - enforce access
-    - apply rate limiting
-    - call gateway
-    - classify result
+    Hardened publisher:
 
-    Does NOT:
-    - implement retry orchestration
+    - access control
+    - rate limiting
+    - delivery orchestration
+    - structured observability
     """
 
     def __init__(
@@ -40,28 +38,51 @@ class Publisher:
         *,
         thread_id: int | None = None,
         trace_id: str | None = None,
+        attempt: int = 0,
     ) -> DeliveryResult:
-        log = self._logger.bind(chat_id=chat_id, trace_id=trace_id)
+        log = self._logger.bind(chat_id=chat_id, trace_id=trace_id, attempt=attempt)
 
         if not await self._access.is_allowed(chat_id):
             log.warning("access_denied")
-            return DeliveryResult(status=DeliveryStatus.FATAL, error="access_denied")
+            return DeliveryResult(
+                status=DeliveryStatus.FATAL,
+                error="access_denied",
+                trace_id=trace_id,
+                chat_id=chat_id,
+                attempt=attempt,
+            )
 
-        await self._limiter.acquire(chat_id)
+        delay = await self._limiter.acquire(chat_id)
+
+        if delay > 0:
+            log.debug("rate_limited", delay=delay)
 
         try:
             result = await self._gateway.send_text(
                 chat_id=chat_id,
                 text=text,
                 thread_id=thread_id,
+                trace_id=trace_id,
             )
+
         except asyncio.CancelledError:
             raise
+
+        except Exception as e:
+            log.error("unexpected_publish_error", error=str(e))
+            return DeliveryResult(
+                status=DeliveryStatus.RETRYABLE,
+                error=str(e),
+                trace_id=trace_id,
+                chat_id=chat_id,
+                attempt=attempt,
+            )
 
         log.info(
             "delivery_result",
             status=result.status,
             error=result.error,
+            retry_after=result.retry_after,
         )
 
         return result
