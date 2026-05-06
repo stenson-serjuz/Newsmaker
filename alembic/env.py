@@ -46,19 +46,8 @@ def run_migrations_online():
         async with connectable.connect() as connection:
             await connection.run_sync(run_sync_migrations)
 
-    # 🔥 FIX: loop-safe execution
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        # already inside running loop → schedule task
-        task = loop.create_task(do_run())
-        loop.run_until_complete(task)
-    else:
-        # safe standalone execution
-        asyncio.run(do_run())
+    # ✅ FIX: standalone execution only
+    asyncio.run(do_run())
 
 
 def run_sync_migrations(connection: Connection):
