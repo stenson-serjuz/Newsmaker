@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    command: bash deployment/entrypoints/app.sh
+    env_file:
+      - ../infra/env/.env.example
+    depends_on:
+      - redis
+      - postgres
+
+  worker:
+    build: .
+    command: bash deployment/entrypoints/worker.sh
+    env_file:
+      - ../infra/env/.env.example
+    depends_on:
+      - redis
+      - postgres
+
+  redis:
+    image: redis:7
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
