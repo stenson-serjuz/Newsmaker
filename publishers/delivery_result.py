@@ -14,5 +14,15 @@ class DeliveryResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     status: DeliveryStatus
+
     message_id: int | None = None
+
     error: str | None = None
+
+    retry_after: int | None = None
+
+    attempt: int | None = None
+
+    trace_id: str | None = None
+
+    chat_id: int | None = None
