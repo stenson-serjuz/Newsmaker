@@ -2,9 +2,18 @@
 builder = "dockerfile"
 
 [deploy]
+# default service (bot + api)
 startCommand = "bash deployment/entrypoints/app.sh"
 healthcheckPath = "/health"
 restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
+
+[services.worker]
+startCommand = "bash deployment/entrypoints/worker.sh"
+
+[services.scheduler]
+startCommand = "bash deployment/entrypoints/scheduler.sh"
 
 [env]
 PYTHONUNBUFFERED = "1"
+RUN_MIGRATIONS = "true"
