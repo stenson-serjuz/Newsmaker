@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List
+import asyncio
 
 from bootstrap.container import Container
 from infrastructure.db.health import PostgresHealthCheck
@@ -48,24 +48,22 @@ class LifecycleManager:
             raise
 
     async def _readiness_check(self) -> None:
-        logger = self._container.logger_factory.create()
+        logger = self._container.logger_factory.create().bind(component="readiness")
 
-        pg = PostgresHealthCheck(
-            self._container.postgres.get(),
-            logger,
+        pg = PostgresHealthCheck(self._container.postgres.get(), logger)
+        redis = RedisHealthCheck(self._container.redis.get(), logger)
+
+        results = await asyncio.gather(
+            pg.check(),
+            redis.check(),
+            return_exceptions=False,
         )
-        redis = RedisHealthCheck(
-            self._container.redis.get(),
-            logger,
-        )
 
-        checks: List[bool] = [
-            await pg.check(),
-            await redis.check(),
-        ]
-
-        if not all(checks):
+        if not all(results):
+            logger.error("readiness_failed", results=results)
             raise RuntimeError("Readiness check failed")
+
+        logger.info("readiness_ok")
 
     async def shutdown(self) -> None:
         if self._state not in (LifecycleState.RUNNING, LifecycleState.FAILED):
@@ -73,7 +71,8 @@ class LifecycleManager:
 
         self._state = LifecycleState.STOPPING
 
-        await self._container.redis.close()
-        await self._container.postgres.close()
-
-        self._state = LifecycleState.STOPPED
+        try:
+            await asyncio.shield(self._container.redis.close())
+            await asyncio.shield(self._container.postgres.close())
+        finally:
+            self._state = LifecycleState.STOPPED
