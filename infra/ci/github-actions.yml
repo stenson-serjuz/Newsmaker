@@ -9,14 +9,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install
+      - name: Install deps
         run: pip install .
 
       - name: Lint
@@ -28,5 +28,11 @@ jobs:
       - name: Tests
         run: pytest
 
+      - name: Security scan
+        run: pip install pip-audit && pip-audit
+
       - name: Docker build
-        run: docker build -t app .
+        run: docker build -f deployment/Dockerfile -t app .
+
+      - name: Migration dry-run
+        run: alembic upgrade head --sql > /dev/null
