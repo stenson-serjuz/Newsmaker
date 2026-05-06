@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Dict, Any
+from pydantic import BaseModel, ConfigDict
+from typing import Mapping
 
 from contracts.events.retry import RetryMetadata
 from contracts.events.delivery import DeliveryMetadata
@@ -15,9 +15,9 @@ class EventEnvelope(BaseModel):
 
     trace_id: str | None = None
 
-    payload: Dict[str, Any]
+    payload: Mapping[str, str | int | float | bool | None]
 
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Mapping[str, str | int | float | bool | None]
 
-    retry: RetryMetadata = Field(default_factory=RetryMetadata)
+    retry: RetryMetadata
     delivery: DeliveryMetadata
