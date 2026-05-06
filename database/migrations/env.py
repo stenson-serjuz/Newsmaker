@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 from database.models.base import Base
+from database.models import (
+    chats,
+    topics,
+    subscriptions,
+    sources,
+    publications,
+    outbox,
+)
 
 config = context.config
 
