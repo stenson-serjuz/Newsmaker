@@ -10,10 +10,6 @@ from workers.base import BaseWorker
 
 
 class RetryWorker(BaseWorker):
-    """
-    Handles delayed retry execution
-    """
-
     def __init__(
         self,
         consumer: ConsumerProtocol,
@@ -32,17 +28,18 @@ class RetryWorker(BaseWorker):
             if self._stop_event.is_set():
                 break
 
-            await self._spawn(self._process(msg_id, event))
+            await self._spawn(lambda: self._process(msg_id, event))
 
     async def _process(self, msg_id: str, event: EventEnvelope) -> None:
         try:
-            if event.retry.next_attempt_at and event.retry.next_attempt_at > int(time.time()):
+            now = int(time.time())
+
+            if event.retry.next_attempt_at and event.retry.next_attempt_at > now:
+                # avoid hot loop → sleep until due (bounded)
+                await asyncio.sleep(min(event.retry.next_attempt_at - now, 5))
                 return
 
-            await self._producer.publish(
-                f"stream:events:{event.delivery.shard_id}",
-                event,
-            )
+            await self._producer.publish("events_stream", event)
 
             await self._consumer.ack(msg_id)
 
