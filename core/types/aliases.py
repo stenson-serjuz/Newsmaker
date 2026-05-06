@@ -1,4 +1,4 @@
-from typing import TypeAlias, NewType, Union, Mapping, Sequence
+from typing import TypeAlias, NewType, Union, Mapping
 from uuid import UUID
 
 TraceId: TypeAlias = str
@@ -10,5 +10,5 @@ JSONScalar: TypeAlias = Union[str, int, float, bool, None]
 JSONType: TypeAlias = Union[
     JSONScalar,
     Mapping[str, "JSONType"],
-    Sequence["JSONType"],
+    list["JSONType"],
 ]
