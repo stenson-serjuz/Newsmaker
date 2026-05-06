@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[entrypoint] app starting..."
+echo "[entrypoint] verifying runtime dependencies..."
 
-# --- wait for dependencies ---
+python - <<'PY'
+import asyncpg
+import sqlalchemy.ext.asyncio
+import redis.asyncio
+print("✅ dependencies OK")
+PY
+
+echo "[entrypoint] waiting for dependencies..."
+
 python - <<'PY'
 import asyncio, os, asyncpg, redis.asyncio as redis
 
@@ -28,13 +36,17 @@ async def wait():
 asyncio.run(wait())
 PY
 
-# --- migrations hook (idempotent) ---
+# 🔥 КЛЮЧЕВОЙ FIX
+export ALEMBIC_CONFIG=alembic.ini
+
+# --- migrations ---
 if [[ "${RUN_MIGRATIONS:-true}" == "true" ]]; then
   echo "[entrypoint] running migrations..."
-  alembic upgrade head
+
+  # ЯВНО указываем конфиг
+  alembic -c alembic.ini upgrade head
 fi
 
 echo "[entrypoint] starting app..."
 
-# exec for proper signal handling
 exec python -m app.main
