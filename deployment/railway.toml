@@ -1,0 +1,10 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "bash deployment/entrypoints/app.sh"
+healthcheckPath = "/health"
+restartPolicyType = "on_failure"
+
+[env]
+PYTHONUNBUFFERED = "1"
