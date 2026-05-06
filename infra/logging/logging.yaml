@@ -2,7 +2,12 @@ version: 1
 
 formatters:
   json:
-    format: '{"ts":"%(asctime)s","level":"%(levelname)s","msg":"%(message)s"}'
+    format: >
+      {"ts":"%(asctime)s",
+       "level":"%(levelname)s",
+       "logger":"%(name)s",
+       "msg":"%(message)s",
+       "trace_id":"%(trace_id)s"}
 
 handlers:
   console:
