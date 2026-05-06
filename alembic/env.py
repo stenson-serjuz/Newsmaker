@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -14,7 +15,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# 🔥 используем ENV вместо хардкода
+# use env-based DSN
 database_url = os.getenv("POSTGRES_DSN")
 config.set_main_option("sqlalchemy.url", database_url)
 
@@ -45,8 +46,19 @@ def run_migrations_online():
         async with connectable.connect() as connection:
             await connection.run_sync(run_sync_migrations)
 
-    import asyncio
-    asyncio.run(do_run())
+    # 🔥 FIX: loop-safe execution
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        # already inside running loop → schedule task
+        task = loop.create_task(do_run())
+        loop.run_until_complete(task)
+    else:
+        # safe standalone execution
+        asyncio.run(do_run())
 
 
 def run_sync_migrations(connection: Connection):
