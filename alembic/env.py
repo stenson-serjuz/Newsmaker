@@ -11,11 +11,23 @@ from alembic import context
 
 config = context.config
 
-# ❌ REMOVED unsafe fileConfig usage
-# fileConfig(config.config_file_name)
+# --- FIX: enforce asyncpg dialect ---
+database_url = os.getenv("POSTGRES_DSN", "").strip()
 
-# use env-based DSN
-database_url = os.getenv("POSTGRES_DSN")
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace(
+        "postgresql://",
+        "postgresql+asyncpg://",
+        1,
+    )
+
+if database_url.startswith("postgresql+psycopg2://"):
+    database_url = database_url.replace(
+        "postgresql+psycopg2://",
+        "postgresql+asyncpg://",
+        1,
+    )
+
 config.set_main_option("sqlalchemy.url", database_url)
 
 target_metadata = None
