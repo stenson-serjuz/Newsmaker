@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from parsers.base.parser import BaseParser
@@ -9,30 +10,43 @@ from parsers.smart_city.ansan.selectors import SELECTORS
 
 
 class AnsanParser(BaseParser):
+    """
+    Hardened Ansan parser:
+    - URL normalization
+    - selector fallback scoring
+    - metadata extraction
+    """
+
     async def _fetch(self, ctx):
         response = await self._get(ctx)
 
         soup = BeautifulSoup(response.text, "lxml")
 
-        items_selector = FallbackSelector(SELECTORS["items"])
-        nodes = items_selector.select(soup)
+        sel = FallbackSelector(SELECTORS["items"])
+        result = sel.select(soup)
 
-        result: list[RawItem] = []
+        items: list[RawItem] = []
 
-        for node in nodes:
+        for node in result.nodes:
             link = node.select_one("a")
             if not link:
                 continue
 
-            title = link.text.strip()
+            href = link.get("href")
+            url = urljoin(ctx.url, href)
 
-            result.append(
+            title = link.get_text(strip=True)
+
+            # metadata extraction hooks
+            category = node.get("data-category")
+
+            items.append(
                 RawItem(
-                    external_id=link.get("href"),
+                    external_id=url,
                     title=title,
-                    content="",
-                    url=link.get("href"),
+                    content=category or "",
+                    url=url,
                 )
             )
 
-        return result
+        return items
