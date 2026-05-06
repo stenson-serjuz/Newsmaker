@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-import math
+import random
 
 from contracts.events.retry import RetryMetadata
 
@@ -18,15 +18,16 @@ class RetryPolicy:
     def next(self, meta: RetryMetadata) -> RetryMetadata:
         attempt = meta.attempt + 1
 
-        delay = min(
-            self._base * (2 ** attempt),
-            self._max,
-        )
+        exp = min(self._base * (2 ** attempt), self._max)
+        jitter = random.uniform(0, exp * 0.1)
+
+        delay = exp + jitter
 
         return RetryMetadata(
             attempt=attempt,
             max_attempts=meta.max_attempts,
             next_attempt_at=int(time.time() + delay),
+            last_error=meta.last_error,
         )
 
     def is_exhausted(self, meta: RetryMetadata) -> bool:
