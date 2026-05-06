@@ -3,14 +3,16 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import defaultdict
+from typing import Callable, Awaitable
 
 
 class RateLimiter:
     """
-    Token bucket style limiter (in-memory)
+    Concurrency-safe rate limiter.
 
-    NOTE:
-    - Redis-based limiter can replace this later
+    - lock-protected
+    - ready for Redis-backed replacement
+    - provides pressure hooks
     """
 
     def __init__(
@@ -24,16 +26,30 @@ class RateLimiter:
         self._chat_last: dict[int, float] = defaultdict(float)
         self._global_last: float = 0.0
 
-    async def acquire(self, chat_id: int) -> None:
-        now = time.time()
+        self._lock = asyncio.Lock()
 
-        chat_delay = max(0.0, (1 / self._per_chat_rate) - (now - self._chat_last[chat_id]))
-        global_delay = max(0.0, (1 / self._global_rate) - (now - self._global_last))
+    async def acquire(self, chat_id: int) -> float:
+        async with self._lock:
+            now = time.time()
 
-        delay = max(chat_delay, global_delay)
+            chat_delay = max(0.0, (1 / self._per_chat_rate) - (now - self._chat_last[chat_id]))
+            global_delay = max(0.0, (1 / self._global_rate) - (now - self._global_last))
 
-        if delay > 0:
-            await asyncio.sleep(delay)
+            delay = max(chat_delay, global_delay)
 
-        self._chat_last[chat_id] = time.time()
-        self._global_last = time.time()
+            if delay > 0:
+                await asyncio.sleep(delay)
+
+            now = time.time()
+
+            self._chat_last[chat_id] = now
+            self._global_last = now
+
+            return delay
+
+    def pressure(self) -> float:
+        """
+        Backpressure signal:
+        - simple heuristic based on global timestamp skew
+        """
+        return time.time() - self._global_last
