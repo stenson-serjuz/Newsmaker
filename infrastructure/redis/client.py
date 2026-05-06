@@ -10,13 +10,9 @@ from core.types.protocols import LoggerProtocol
 
 class RedisClient:
     """
-    Ownership:
-    - managed by container
-    - single instance per process
-
-    Guarantees:
-    - safe startup
-    - reconnect handled by driver
+    Retry strategy:
+    - Redis driver handles low-level retries
+    - application layer handles retry logic
     """
 
     def __init__(
@@ -37,7 +33,6 @@ class RedisClient:
                 encoding="utf-8",
                 decode_responses=True,
                 health_check_interval=30,
-                retry_on_timeout=True,
             )
 
             await self._client.ping()
