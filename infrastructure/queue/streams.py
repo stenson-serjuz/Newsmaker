@@ -6,7 +6,9 @@ from redis.exceptions import ResponseError
 
 class StreamTopology:
     """
-    Central ownership of stream topology and lifecycle.
+    Ownership:
+    - initialized externally (bootstrap or migration step)
+    - NOT owned by consumer
     """
 
     def __init__(self, redis: Redis) -> None:
@@ -28,11 +30,7 @@ class StreamTopology:
     def group_events(shard: int) -> str:
         return f"cg:events:{shard}:workers"
 
-    async def ensure_stream_group(
-        self,
-        stream: str,
-        group: str,
-    ) -> None:
+    async def ensure_group(self, stream: str, group: str) -> None:
         try:
             await self._redis.xgroup_create(
                 stream,
