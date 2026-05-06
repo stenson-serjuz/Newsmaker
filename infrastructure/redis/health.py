@@ -1,4 +1,6 @@
+import asyncio
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from core.types.protocols import LoggerProtocol
 
@@ -10,8 +12,9 @@ class RedisHealthCheck:
 
     async def check(self) -> bool:
         try:
-            await self._client.ping()
+            async with asyncio.timeout(2.0):
+                await self._client.ping()
             return True
-        except Exception as e:
+        except (asyncio.TimeoutError, RedisError) as e:
             self._logger.error("redis_health_failed", error=str(e))
             return False
