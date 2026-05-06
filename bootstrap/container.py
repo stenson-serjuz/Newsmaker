@@ -8,6 +8,19 @@ from infrastructure.redis.client import RedisClient
 
 
 class Container:
+    """
+    DI container.
+
+    RULES:
+    - no business logic
+    - no dynamic creation in runtime
+    - explicit lifecycle
+
+    Future:
+    - will be split per bounded context
+    - avoid god-object growth by modular containers
+    """
+
     def __init__(self) -> None:
         self._config: Optional[RuntimeConfig] = None
         self._logger_factory: Optional[LoggerFactory] = None
