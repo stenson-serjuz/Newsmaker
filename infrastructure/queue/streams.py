@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from redis.asyncio import Redis
+from redis.exceptions import ResponseError
 
 
-class StreamNames:
+class StreamTopology:
+    """
+    Central ownership of stream topology and lifecycle.
+    """
+
+    def __init__(self, redis: Redis) -> None:
+        self._redis = redis
+
     @staticmethod
     def events(shard: int) -> str:
         return f"stream:events:{shard}"
@@ -16,12 +24,25 @@ class StreamNames:
     def dlq(shard: int) -> str:
         return f"stream:dlq:{shard}"
 
-
-class ConsumerGroups:
     @staticmethod
-    def workers(shard: int) -> str:
+    def group_events(shard: int) -> str:
         return f"cg:events:{shard}:workers"
 
-    @staticmethod
-    def retry(shard: int) -> str:
-        return f"cg:retry:{shard}"
+    async def ensure_stream_group(
+        self,
+        stream: str,
+        group: str,
+    ) -> None:
+        try:
+            await self._redis.xgroup_create(
+                stream,
+                group,
+                id="0",
+                mkstream=True,
+            )
+        except ResponseError as e:
+            if "BUSYGROUP" not in str(e):
+                raise
+
+    async def trim(self, stream: str, maxlen: int) -> None:
+        await self._redis.xtrim(stream, maxlen=maxlen, approximate=True)
