@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-import httpx
+from typing import Protocol, Sequence
 
-from parsers.base.parser import BaseParser
-from parsers.smart_city.strategies import Strategy, DefaultStrategy
+from parsers.base.models import RawItem
 
 
-class SmartCityParser(BaseParser):
-    def __init__(self, normalizer, client: httpx.AsyncClient, strategy: Strategy | None = None) -> None:
-        super().__init__(normalizer)
-        self._client = client
-        self._strategy = strategy or DefaultStrategy()
+class Strategy(Protocol):
+    async def extract(self, html: str) -> Sequence[RawItem]: ...
 
-    async def _fetch(self, url: str):
-        response = await self._client.get(url)
-        return await self._strategy.extract(response.text)
+
+class StrategyResolver(Protocol):
+    async def resolve(self, html: str) -> Strategy: ...
