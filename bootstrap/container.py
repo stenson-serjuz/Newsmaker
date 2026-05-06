@@ -14,18 +14,22 @@ class Container:
         self._config = build_runtime_config()
 
     def init_logging(self) -> None:
-        assert self._config is not None
-        configure_logging(self._config.get().log_level)
+        if self._config is None:
+            raise RuntimeError("Config must be initialized before logging")
+
+        configure_logging(self._config.log_level)
 
     def init_logger_factory(self) -> None:
         self._logger_factory = LoggerFactory()
 
     @property
     def config(self) -> RuntimeConfig:
-        assert self._config is not None
+        if self._config is None:
+            raise RuntimeError("Config is not initialized")
         return self._config
 
     @property
     def logger_factory(self) -> LoggerFactory:
-        assert self._logger_factory is not None
+        if self._logger_factory is None:
+            raise RuntimeError("LoggerFactory is not initialized")
         return self._logger_factory
