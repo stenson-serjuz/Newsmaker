@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
+from contextlib import asynccontextmanager
+from typing import Optional, AsyncIterator
 
 import asyncpg
 from asyncpg import Pool, PoolAcquireTimeoutError, PostgresError
@@ -12,14 +13,12 @@ from core.types.protocols import LoggerProtocol
 class PostgresPool:
     """
     Ownership:
-    - Managed by DI container
-    - Lifecycle controlled via bootstrap.lifecycle
-    - No global access
+    - created by container
+    - lifecycle managed externally
+    - no direct connection exposure
 
-    Guarantees:
-    - Warmed pool
-    - Safe acquisition with timeout
-    - Stale connection mitigation
+    Logging:
+    - uses child logger with component binding
     """
 
     def __init__(
@@ -82,6 +81,33 @@ class PostgresPool:
             self._logger.error("postgres_pool_warmup_failed", error=str(e))
             raise
 
+    @asynccontextmanager
+    async def connection(self) -> AsyncIterator[asyncpg.Connection]:
+        """
+        Safe connection scope.
+
+        Prevents:
+        - leaks
+        - misuse of raw acquire
+
+        Usage:
+            async with pool.connection() as conn:
+                ...
+        """
+        if self._pool is None:
+            raise RuntimeError("Pool not initialized")
+
+        try:
+            async with asyncio.timeout(self._acquire_timeout):
+                async with self._pool.acquire() as conn:
+                    yield conn
+        except (asyncio.TimeoutError, PoolAcquireTimeoutError) as e:
+            self._logger.error("postgres_acquire_timeout", error=str(e))
+            raise
+        except PostgresError as e:
+            self._logger.error("postgres_connection_error", error=str(e))
+            raise
+
     async def close(self) -> None:
         if self._pool is None:
             return
@@ -89,27 +115,29 @@ class PostgresPool:
         self._logger.info("postgres_pool_closing")
 
         try:
-            await self._pool.close()
+            await asyncio.shield(self._pool.close())
         except PostgresError as e:
             self._logger.error("postgres_pool_close_failed", error=str(e))
             raise
 
         self._logger.info("postgres_pool_closed")
 
+    def metrics(self) -> dict[str, int]:
+        """
+        Observability hook.
+        """
+        if self._pool is None:
+            return {"status": 0}
+
+        return {
+            "status": 1,
+            "min_size": self._min_size,
+            "max_size": self._max_size,
+            "size": self._pool.get_size(),
+            "idle": self._pool.get_idle_size(),
+        }
+
     def get(self) -> Pool:
         if self._pool is None:
-            raise RuntimeError("Postgres pool not initialized")
+            raise RuntimeError("Pool not initialized")
         return self._pool
-
-    async def acquire(self) -> asyncpg.Connection:
-        """
-        Safe acquire with timeout
-        """
-        pool = self.get()
-
-        try:
-            async with asyncio.timeout(self._acquire_timeout):
-                return await pool.acquire()
-        except (asyncio.TimeoutError, PoolAcquireTimeoutError) as e:
-            self._logger.error("postgres_acquire_timeout", error=str(e))
-            raise
