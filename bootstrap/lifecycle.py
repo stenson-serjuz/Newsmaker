@@ -9,6 +9,7 @@ class LifecycleState(Enum):
     RUNNING = auto()
     STOPPING = auto()
     STOPPED = auto()
+    FAILED = auto()
 
 
 class LifecycleManager:
@@ -26,18 +27,22 @@ class LifecycleManager:
 
         self._state = LifecycleState.STARTING
 
-        self._container.init_config()
-        self._container.init_logging()
-        self._container.init_logger_factory()
+        try:
+            self._container.init_config()
+            self._container.init_logging()
+            self._container.init_logger_factory()
 
-        self._state = LifecycleState.RUNNING
+            self._state = LifecycleState.RUNNING
+        except Exception:
+            self._state = LifecycleState.FAILED
+            raise
 
     async def shutdown(self) -> None:
-        if self._state is not LifecycleState.RUNNING:
+        if self._state not in (LifecycleState.RUNNING, LifecycleState.FAILED):
             raise RuntimeError("Invalid lifecycle transition to shutdown")
 
         self._state = LifecycleState.STOPPING
 
-        # future: close pools
+        # future: close pools safely
 
         self._state = LifecycleState.STOPPED
