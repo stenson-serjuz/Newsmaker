@@ -30,5 +30,8 @@ class RetryPolicy:
             last_error=meta.last_error,
         )
 
-    def is_exhausted(self, meta: RetryMetadata) -> bool:
+    def should_retry(self, meta: RetryMetadata) -> bool:
+        return meta.attempt < meta.max_attempts
+
+    def is_poison(self, meta: RetryMetadata) -> bool:
         return meta.attempt >= meta.max_attempts
