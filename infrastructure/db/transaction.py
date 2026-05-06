@@ -6,43 +6,34 @@ from typing import AsyncIterator, Optional
 
 import asyncpg
 
+from infrastructure.db.pool import PostgresPool
+
 
 @asynccontextmanager
 async def transaction(
-    pool: asyncpg.Pool,
+    pool: PostgresPool,
     *,
     isolation: Optional[str] = None,
     readonly: bool = False,
     timeout: Optional[float] = None,
 ) -> AsyncIterator[asyncpg.Connection]:
     """
-    Transaction scope rules:
-
-    - one transaction per use-case
-    - never shared across async tasks
-    - must be short-lived
-
-    Supports:
-    - isolation level
-    - readonly transactions
-    - timeout
+    Transaction rules:
+    - always uses pool abstraction
+    - no direct pool bypass
+    - single-use per scope
     """
 
-    async with pool.acquire() as conn:
+    async with pool.connection() as conn:
         tx = conn.transaction(
             isolation=isolation,
             readonly=readonly,
         )
 
-        try:
-            if timeout:
-                async with asyncio.timeout(timeout):
-                    async with tx:
-                        yield conn
-            else:
+        if timeout:
+            async with asyncio.timeout(timeout):
                 async with tx:
                     yield conn
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            raise
+        else:
+            async with tx:
+                yield conn
