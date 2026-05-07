@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     Runtime settings (typed).
 
     - Preserves existing config model
-    - Enforces asyncpg DSN normalization
+    - Provides driver-specific DSN normalization
     """
 
     model_config = SettingsConfigDict(
@@ -21,40 +21,56 @@ class Settings(BaseSettings):
 
     postgres_dsn: str = Field(..., alias="POSTGRES_DSN")
 
-    def database_dsn(self) -> str:
+    # ------------------------------------------------------------------
+    # 🔥 SQLAlchemy DSN (async dialect)
+    # ------------------------------------------------------------------
+    def sqlalchemy_database_dsn(self) -> str:
         """
-        Normalize DSN to asyncpg dialect.
+        Normalize DSN for SQLAlchemy async engine.
+
+        Required format:
+            postgresql+asyncpg://
         """
         dsn = self.postgres_dsn.strip()
 
-        # already correct
         if dsn.startswith("postgresql+asyncpg://"):
             return dsn
 
-        # replace default sync driver
         if dsn.startswith("postgresql://"):
             return dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-        # replace explicit psycopg2
         if dsn.startswith("postgresql+psycopg2://"):
-            return dsn.replace(
-                "postgresql+psycopg2://",
-                "postgresql+asyncpg://",
-                1,
-            )
+            return dsn.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
 
-        raise ValueError(f"Invalid POSTGRES_DSN: {dsn}")
+        raise ValueError(f"Invalid POSTGRES_DSN for SQLAlchemy: {dsn}")
+
+    # ------------------------------------------------------------------
+    # 🔥 asyncpg DSN (raw driver)
+    # ------------------------------------------------------------------
+    def asyncpg_database_dsn(self) -> str:
+        """
+        Normalize DSN for asyncpg.create_pool()
+
+        Required format:
+            postgresql://  OR postgres://
+        """
+        dsn = self.postgres_dsn.strip()
+
+        if dsn.startswith("postgresql://") or dsn.startswith("postgres://"):
+            return dsn
+
+        if dsn.startswith("postgresql+asyncpg://"):
+            return dsn.replace("postgresql+asyncpg://", "postgresql://", 1)
+
+        if dsn.startswith("postgresql+psycopg2://"):
+            return dsn.replace("postgresql+psycopg2://", "postgresql://", 1)
+
+        raise ValueError(f"Invalid POSTGRES_DSN for asyncpg: {dsn}")
 
 
-# 🔥 RESTORED PUBLIC API (backward compatibility)
+# ----------------------------------------------------------------------
+# 🔥 BACKWARD-COMPAT LOADER
+# ----------------------------------------------------------------------
 @lru_cache(maxsize=1)
 def load_settings() -> Settings:
-    """
-    Backward-compatible settings loader.
-
-    - Preserves existing import contract:
-        from core.config.settings import load_settings
-    - Singleton-safe via lru_cache
-    - Avoids repeated env parsing
-    """
     return Settings()
