@@ -20,9 +20,6 @@ class Container:
         self._settings: Optional[Settings] = None
         self._logger: Optional[Any] = None
 
-        # NOTE:
-        # Lifecycle dependency removed (no longer exists in project)
-
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
     # ------------------------------------------------------------------
@@ -30,16 +27,24 @@ class Container:
         if self._settings is None:
             self._settings = load_settings()
 
+    def init_logging(self) -> None:
+        """
+        Backward-compatible logging initializer.
+
+        Previously used by startup lifecycle:
+            self._c.init_logging()
+
+        Now acts as a thin shim over get_logger().
+        """
+        if self._logger is None:
+            self._logger = get_logger()
+
     # ------------------------------------------------------------------
     # INIT FLOW
     # ------------------------------------------------------------------
     def init_all(self) -> None:
         self.init_config()
-
-        if self._logger is None:
-            self._logger = get_logger()
-
-        # Lifecycle init removed (no-op)
+        self.init_logging()
 
     # ------------------------------------------------------------------
     # PROPERTIES
