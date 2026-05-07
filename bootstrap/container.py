@@ -25,6 +25,16 @@ class Container:
             logger=self.logger,
         )
 
+    def init_config(self) -> None:
+        pass
+
+    def init_logging(self) -> None:
+        pass
+
+    async def init_connections(self) -> None:
+        await self._postgres.start()
+        await self._redis.start()
+
     @property
     def postgres(self) -> PostgresPool:
         return self._postgres
