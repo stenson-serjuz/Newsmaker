@@ -17,10 +17,12 @@ class Container:
 
         self._postgres = PostgresPool(
             dsn=self.settings.asyncpg_database_dsn(),
+            logger=self.logger,
         )
 
         self._redis = RedisClient(
             dsn=os.environ["REDIS_URL"],
+            logger=self.logger,
         )
 
     @property
