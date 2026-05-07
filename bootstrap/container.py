@@ -4,7 +4,6 @@ from typing import Optional, Any
 
 from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
-from core.lifecycle import Lifecycle
 
 
 class Container:
@@ -20,9 +19,9 @@ class Container:
         # core
         self._settings: Optional[Settings] = None
         self._logger: Optional[Any] = None
-        self._lifecycle: Optional[Lifecycle] = None
 
-        # other dependencies (unchanged)
+        # NOTE:
+        # Lifecycle dependency removed (no longer exists in project)
 
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
@@ -40,8 +39,7 @@ class Container:
         if self._logger is None:
             self._logger = get_logger()
 
-        if self._lifecycle is None:
-            self._lifecycle = Lifecycle()
+        # Lifecycle init removed (no-op)
 
     # ------------------------------------------------------------------
     # PROPERTIES
@@ -57,9 +55,3 @@ class Container:
         if self._logger is None:
             self._logger = get_logger()
         return self._logger
-
-    @property
-    def lifecycle(self) -> Lifecycle:
-        if self._lifecycle is None:
-            self._lifecycle = Lifecycle()
-        return self._lifecycle
