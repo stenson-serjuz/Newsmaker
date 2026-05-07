@@ -24,6 +24,7 @@ class Container:
             url=os.environ["REDIS_URL"],
             logger=self.logger,
         )
+        )
 
     @property
     def postgres(self) -> PostgresPool:
