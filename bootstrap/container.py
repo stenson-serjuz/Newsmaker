@@ -21,7 +21,7 @@ class Container:
         )
 
         self._redis = RedisClient(
-            dsn=os.environ["REDIS_URL"],
+            url=os.environ["REDIS_URL"]
             logger=self.logger,
         )
 
