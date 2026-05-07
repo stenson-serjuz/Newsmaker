@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
+from typing import Optional, Any
 
-from core.config.settings import load_settings
+from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
 
 from infrastructure.db.pool import PostgresPool
@@ -11,37 +12,92 @@ from infrastructure.redis.client import RedisClient
 
 class Container:
     def __init__(self) -> None:
-        self.settings = load_settings()
+        self._settings: Optional[Settings] = None
+        self._logger: Optional[Any] = None
 
-        self.logger = get_logger()
+        self._postgres: Optional[PostgresPool] = None
+        self._redis: Optional[RedisClient] = None
 
-        self._postgres = PostgresPool(
-            dsn=self.settings.asyncpg_database_dsn(),
-            logger=self.logger,
-        )
-
-        self._redis = RedisClient(
-            url=os.environ["REDIS_URL"],
-            logger=self.logger,
-        )
-
+    # ------------------------------------------------------------------
+    # BACKWARD-COMPAT API
+    # ------------------------------------------------------------------
     def init_config(self) -> None:
-        pass
-
-    def init_logger_factory(self) -> None:
-        pass
+        if self._settings is None:
+            self._settings = load_settings()
 
     def init_logging(self) -> None:
-        pass
+        if self._logger is None:
+            self._logger = get_logger()
 
-    async def init_connections(self) -> None:
-        await self._postgres.start()
-        await self._redis.start()
+    def init_logger_factory(self) -> None:
+        self.init_logging()
+
+    def init_connections(self) -> None:
+        """
+        Wiring/bootstrap only.
+
+        Real lifecycle startup happens in StartupOrchestrator:
+
+            await self._c.postgres.start()
+            await self._c.redis.start()
+        """
+
+        settings = self.settings
+        logger = self.logger
+
+        if self._postgres is None:
+            self._postgres = PostgresPool(
+                dsn=settings.asyncpg_database_dsn(),
+                logger=logger,
+            )
+
+        if self._redis is None:
+            self._redis = RedisClient(
+                url=os.environ["REDIS_URL"],
+                logger=logger,
+            )
+
+    # ------------------------------------------------------------------
+    # INIT FLOW
+    # ------------------------------------------------------------------
+    def init_all(self) -> None:
+        self.init_config()
+        self.init_logging()
+        self.init_connections()
+
+    # ------------------------------------------------------------------
+    # PROPERTIES
+    # ------------------------------------------------------------------
+    @property
+    def settings(self) -> Settings:
+        if self._settings is None:
+            self._settings = load_settings()
+
+        return self._settings
+
+    @property
+    def logger(self) -> Any:
+        if self._logger is None:
+            self._logger = get_logger()
+
+        return self._logger
 
     @property
     def postgres(self) -> PostgresPool:
+        if self._postgres is None:
+            self.init_connections()
+
+        if self._postgres is None:
+            raise RuntimeError("PostgresPool not initialized")
+
         return self._postgres
 
     @property
     def redis(self) -> RedisClient:
+        if self._redis is None:
+            self.init_connections()
+
+        if self._redis is None:
+            raise RuntimeError("RedisClient not initialized")
+
         return self._redis
