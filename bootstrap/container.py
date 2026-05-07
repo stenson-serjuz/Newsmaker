@@ -13,7 +13,7 @@ class Container:
     def __init__(self) -> None:
         self.settings = load_settings()
 
-        self.logger = get_logger(__name__)
+        self.logger = get_logger()
 
         self._postgres = PostgresPool(
             dsn=self.settings.asyncpg_database_dsn(),
