@@ -28,6 +28,9 @@ class Container:
     def init_config(self) -> None:
         pass
 
+    def init_logger_factory(self) -> None:
+        pass
+
     def init_logging(self) -> None:
         pass
 
