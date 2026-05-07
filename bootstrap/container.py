@@ -20,6 +20,9 @@ class Container:
         self._settings: Optional[Settings] = None
         self._logger: Optional[Any] = None
 
+        # NOTE:
+        # connection objects (db/redis) are initialized elsewhere in current architecture
+
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
     # ------------------------------------------------------------------
@@ -28,19 +31,27 @@ class Container:
             self._settings = load_settings()
 
     def init_logging(self) -> None:
-        """
-        Backward-compatible logging initializer.
-        """
         if self._logger is None:
             self._logger = get_logger()
 
     def init_logger_factory(self) -> None:
         """
-        Backward-compatible alias for legacy startup contract.
-
-        Delegates to init_logging() to avoid duplication.
+        Legacy alias → delegates to logging init
         """
         self.init_logging()
+
+    def init_connections(self) -> None:
+        """
+        Backward-compatible shim for startup orchestration.
+
+        In current architecture:
+        - connection initialization is handled lazily or via other layers
+        - no explicit container-level init method exists
+
+        This method preserves startup contract without duplicating logic.
+        """
+        # no-op by design (connections are initialized in their respective layers)
+        return None
 
     # ------------------------------------------------------------------
     # INIT FLOW
