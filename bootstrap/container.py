@@ -5,6 +5,9 @@ from typing import Optional, Any
 from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
 
+# 🔥 REAL EXISTING INFRASTRUCTURE (reuse, do NOT invent)
+from infrastructure.db.pool import PostgresPool
+
 
 class Container:
     """
@@ -20,8 +23,8 @@ class Container:
         self._settings: Optional[Settings] = None
         self._logger: Optional[Any] = None
 
-        # NOTE:
-        # connection objects (db/redis) are initialized elsewhere in current architecture
+        # 🔥 REAL postgres dependency (lazy)
+        self._postgres: Optional[PostgresPool] = None
 
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
@@ -35,23 +38,24 @@ class Container:
             self._logger = get_logger()
 
     def init_logger_factory(self) -> None:
-        """
-        Legacy alias → delegates to logging init
-        """
         self.init_logging()
 
     def init_connections(self) -> None:
         """
-        Backward-compatible shim for startup orchestration.
+        Initialize real infrastructure connections.
 
-        In current architecture:
-        - connection initialization is handled lazily or via other layers
-        - no explicit container-level init method exists
-
-        This method preserves startup contract without duplicating logic.
+        Previously removed → now restored properly.
         """
-        # no-op by design (connections are initialized in their respective layers)
-        return None
+        if self._postgres is None:
+            # ensure dependencies exist
+            settings = self.settings
+            logger = self.logger
+
+            # 🔥 REAL wiring (no fake objects)
+            self._postgres = PostgresPool(
+                dsn=settings.database_dsn(),
+                logger=logger,
+            )
 
     # ------------------------------------------------------------------
     # INIT FLOW
@@ -59,6 +63,7 @@ class Container:
     def init_all(self) -> None:
         self.init_config()
         self.init_logging()
+        self.init_connections()
 
     # ------------------------------------------------------------------
     # PROPERTIES
@@ -74,3 +79,21 @@ class Container:
         if self._logger is None:
             self._logger = get_logger()
         return self._logger
+
+    # 🔥 REQUIRED BY STARTUP (CRITICAL FIX)
+    @property
+    def postgres(self) -> PostgresPool:
+        """
+        Real postgres dependency expected by startup:
+
+        startup.py →
+            await self._c.postgres.start()
+        """
+        if self._postgres is None:
+            self.init_connections()
+
+        # safety guard
+        if self._postgres is None:
+            raise RuntimeError("PostgresPool not initialized")
+
+        return self._postgres
