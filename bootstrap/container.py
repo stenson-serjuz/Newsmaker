@@ -30,14 +30,17 @@ class Container:
     def init_logging(self) -> None:
         """
         Backward-compatible logging initializer.
-
-        Previously used by startup lifecycle:
-            self._c.init_logging()
-
-        Now acts as a thin shim over get_logger().
         """
         if self._logger is None:
             self._logger = get_logger()
+
+    def init_logger_factory(self) -> None:
+        """
+        Backward-compatible alias for legacy startup contract.
+
+        Delegates to init_logging() to avoid duplication.
+        """
+        self.init_logging()
 
     # ------------------------------------------------------------------
     # INIT FLOW
