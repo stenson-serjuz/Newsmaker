@@ -5,25 +5,13 @@ from typing import Optional, Any
 from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
 
-# 🔥 REAL EXISTING INFRASTRUCTURE (reuse, do NOT invent)
 from infrastructure.db.pool import PostgresPool
 
 
 class Container:
-    """
-    DI Container.
-
-    - Holds application dependencies
-    - Owns lifecycle-bound resources
-    - Provides backward-compatible init methods
-    """
-
     def __init__(self) -> None:
-        # core
         self._settings: Optional[Settings] = None
         self._logger: Optional[Any] = None
-
-        # 🔥 REAL postgres dependency (lazy)
         self._postgres: Optional[PostgresPool] = None
 
     # ------------------------------------------------------------------
@@ -42,18 +30,15 @@ class Container:
 
     def init_connections(self) -> None:
         """
-        Initialize real infrastructure connections.
-
-        Previously removed → now restored properly.
+        Restore real postgres wiring with CORRECT asyncpg DSN
         """
         if self._postgres is None:
-            # ensure dependencies exist
             settings = self.settings
             logger = self.logger
 
-            # 🔥 REAL wiring (no fake objects)
+            # 🔥 FIX: use asyncpg DSN, NOT sqlalchemy DSN
             self._postgres = PostgresPool(
-                dsn=settings.database_dsn(),
+                dsn=settings.asyncpg_database_dsn(),
                 logger=logger,
             )
 
@@ -80,19 +65,11 @@ class Container:
             self._logger = get_logger()
         return self._logger
 
-    # 🔥 REQUIRED BY STARTUP (CRITICAL FIX)
     @property
     def postgres(self) -> PostgresPool:
-        """
-        Real postgres dependency expected by startup:
-
-        startup.py →
-            await self._c.postgres.start()
-        """
         if self._postgres is None:
             self.init_connections()
 
-        # safety guard
         if self._postgres is None:
             raise RuntimeError("PostgresPool not initialized")
 
