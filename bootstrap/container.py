@@ -14,6 +14,8 @@ from infrastructure.db.health import PostgresHealthCheck
 from infrastructure.redis.client import RedisClient
 from infrastructure.redis.health import RedisHealthCheck
 
+from scheduler.scheduler import Scheduler
+
 
 class Container:
     def __init__(self) -> None:
@@ -28,6 +30,8 @@ class Container:
 
         self._bot: Optional[Bot] = None
         self._dispatcher: Optional[Dispatcher] = None
+
+        self._scheduler: Optional[Scheduler] = None
 
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
@@ -66,6 +70,11 @@ class Container:
 
         if self._dispatcher is None:
             self._dispatcher = Dispatcher()
+
+        if self._scheduler is None:
+            self._scheduler = Scheduler(
+                logger=logger,
+            )
 
     # ------------------------------------------------------------------
     # INIT FLOW
@@ -160,3 +169,13 @@ class Container:
             raise RuntimeError("Dispatcher not initialized")
 
         return self._dispatcher
+
+    @property
+    def scheduler(self) -> Scheduler:
+        if self._scheduler is None:
+            self.init_connections()
+
+        if self._scheduler is None:
+            raise RuntimeError("Scheduler not initialized")
+
+        return self._scheduler
