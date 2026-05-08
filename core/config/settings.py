@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     postgres_dsn: str = Field(..., alias="POSTGRES_DSN")
 
+    bot_token: str = Field(..., alias="BOT_TOKEN")
+
     # ------------------------------------------------------------------
     # 🔥 SQLAlchemy DSN (async dialect)
     # ------------------------------------------------------------------
