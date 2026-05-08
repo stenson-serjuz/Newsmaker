@@ -7,6 +7,8 @@ from typing import Optional, Any
 
 from aiogram import Bot, Dispatcher
 
+from bot.routers.base import build_root_router
+
 from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
 
@@ -67,7 +69,11 @@ class Container:
             )
 
         if self._dispatcher is None:
-            self._dispatcher = Dispatcher()
+            dp = Dispatcher()
+
+            dp.include_router(build_root_router())
+
+            self._dispatcher = dp
 
     # ------------------------------------------------------------------
     # INIT FLOW
