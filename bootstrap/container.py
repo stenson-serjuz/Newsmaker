@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Optional, Any
 
-from aiogram import Bot
+from aiogram import Bot, Dispatcher
 
 from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
@@ -27,6 +27,7 @@ class Container:
         self._redis_health: Optional[RedisHealthCheck] = None
 
         self._bot: Optional[Bot] = None
+        self._dispatcher: Optional[Dispatcher] = None
 
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
@@ -62,6 +63,9 @@ class Container:
             self._bot = Bot(
                 token=settings.bot_token,
             )
+
+        if self._dispatcher is None:
+            self._dispatcher = Dispatcher()
 
     # ------------------------------------------------------------------
     # INIT FLOW
@@ -146,3 +150,13 @@ class Container:
             raise RuntimeError("Bot not initialized")
 
         return self._bot
+
+    @property
+    def dispatcher(self) -> Dispatcher:
+        if self._dispatcher is None:
+            self.init_connections()
+
+        if self._dispatcher is None:
+            raise RuntimeError("Dispatcher not initialized")
+
+        return self._dispatcher
