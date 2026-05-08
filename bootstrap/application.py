@@ -1,42 +1,40 @@
 from __future__ import annotations
 
-import asyncio
-
 from bootstrap.container import Container
-from bootstrap.startup import StartupOrchestrator
-from bootstrap.shutdown import ShutdownOrchestrator
-from bootstrap.orchestration import RuntimeOrchestrator
+from bootstrap.startup import startup
+from core.logging.logger import get_logger
+
+
+logger = get_logger()
 
 
 class Application:
-    """
-    Top-level application coordinator.
-
-    Ownership:
-    - owns container
-    - owns orchestrators
-    - no business logic
-    """
-
     def __init__(self) -> None:
-        self._container = Container()
+        logger.info("application_init_started")
 
-        self._startup = StartupOrchestrator(self._container)
-        self._shutdown = ShutdownOrchestrator(self._container)
-        self._runtime = RuntimeOrchestrator(self._container)
+        self.container = Container()
 
-        self._running = False
+        logger.info("container_created")
 
     async def start(self) -> None:
-        await self._startup.run()
+        logger.info("application_start_enter")
+
+        self.container.init_all()
+
+        logger.info("container_init_all_completed")
+
+        await startup(self.container)
+
+        logger.info("bootstrap_startup_completed")
 
     async def run(self) -> None:
-        self._running = True
-        await self._runtime.run()
+        logger.info("application_run_enter")
 
-    async def stop(self) -> None:
-        if not self._running:
-            return
+        bot = self.container.bot
+        dispatcher = self.container.dispatcher
 
-        await self._shutdown.run()
-        self._running = False
+        logger.info("dispatcher_polling_starting")
+
+        await dispatcher.start_polling(bot)
+
+        logger.info("dispatcher_polling_finished")
