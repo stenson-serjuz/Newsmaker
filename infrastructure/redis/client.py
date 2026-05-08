@@ -1,11 +1,11 @@
+# infrastructure/redis/client.py
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Any
 
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
-
-from core.types.protocols import LoggerProtocol
 
 
 class RedisClient:
@@ -18,7 +18,7 @@ class RedisClient:
     def __init__(
         self,
         url: str,
-        logger: LoggerProtocol,
+        logger: Any,
     ) -> None:
         self._url = url
         self._logger = logger.bind(component="redis_client")
@@ -57,7 +57,11 @@ class RedisClient:
 
         self._logger.info("redis_closed")
 
+    async def stop(self) -> None:
+        await self.close()
+
     def get(self) -> Redis:
         if self._client is None:
             raise RuntimeError("Redis client not initialized")
+
         return self._client
