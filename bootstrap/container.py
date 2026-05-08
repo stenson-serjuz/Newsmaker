@@ -12,8 +12,6 @@ from infrastructure.db.health import PostgresHealthCheck
 from infrastructure.redis.client import RedisClient
 from infrastructure.redis.health import RedisHealthCheck
 
-from workers.news_worker import NewsWorker
-
 
 class Container:
     def __init__(self) -> None:
@@ -25,8 +23,6 @@ class Container:
 
         self._postgres_health: Optional[PostgresHealthCheck] = None
         self._redis_health: Optional[RedisHealthCheck] = None
-
-        self._workers: Optional[list[NewsWorker]] = None
 
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
@@ -138,13 +134,5 @@ class Container:
         return self._redis_health
 
     @property
-    def workers(self) -> list[NewsWorker]:
-        if self._workers is None:
-            self._workers = [
-                NewsWorker(
-                    redis=self.redis.get(),
-                    logger=self.logger,
-                )
-            ]
-
-        return self._workers
+    def workers(self) -> list[Any]:
+        return []
