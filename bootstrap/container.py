@@ -7,7 +7,10 @@ from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
 
 from infrastructure.db.pool import PostgresPool
+from infrastructure.db.health import PostgresHealthCheck
+
 from infrastructure.redis.client import RedisClient
+from infrastructure.redis.health import RedisHealthCheck
 
 
 class Container:
@@ -17,6 +20,9 @@ class Container:
 
         self._postgres: Optional[PostgresPool] = None
         self._redis: Optional[RedisClient] = None
+
+        self._postgres_health: Optional[PostgresHealthCheck] = None
+        self._redis_health: Optional[RedisHealthCheck] = None
 
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
@@ -101,3 +107,28 @@ class Container:
             raise RuntimeError("RedisClient not initialized")
 
         return self._redis
+
+    @property
+    def postgres_health(self) -> PostgresHealthCheck:
+        if self._postgres_health is None:
+            pool = self.postgres._pool
+
+            if pool is None:
+                raise RuntimeError("Postgres pool is not started")
+
+            self._postgres_health = PostgresHealthCheck(
+                pool=pool,
+                logger=self.logger,
+            )
+
+        return self._postgres_health
+
+    @property
+    def redis_health(self) -> RedisHealthCheck:
+        if self._redis_health is None:
+            self._redis_health = RedisHealthCheck(
+                client=self.redis.get(),
+                logger=self.logger,
+            )
+
+        return self._redis_health
