@@ -8,7 +8,6 @@ from core.logging.logger import get_logger
 
 from infrastructure.db.pool import PostgresPool
 from infrastructure.redis.client import RedisClient
-from infrastructure.redis.topology import StreamTopology
 
 
 class Container:
@@ -18,7 +17,6 @@ class Container:
 
         self._postgres: Optional[PostgresPool] = None
         self._redis: Optional[RedisClient] = None
-        self._stream_topology: Optional[StreamTopology] = None
 
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
@@ -57,11 +55,6 @@ class Container:
             self._redis = RedisClient(
                 url=os.environ["REDIS_URL"],
                 logger=logger,
-            )
-
-        if self._stream_topology is None:
-            self._stream_topology = StreamTopology(
-                prefix="newsmaker",
             )
 
     # ------------------------------------------------------------------
@@ -108,13 +101,3 @@ class Container:
             raise RuntimeError("RedisClient not initialized")
 
         return self._redis
-
-    @property
-    def stream_topology(self) -> StreamTopology:
-        if self._stream_topology is None:
-            self.init_connections()
-
-        if self._stream_topology is None:
-            raise RuntimeError("StreamTopology not initialized")
-
-        return self._stream_topology
