@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from typing import Optional, Any
 
+from aiogram import Bot
+
 from core.config.settings import load_settings, Settings
 from core.logging.logger import get_logger
 
@@ -24,6 +26,8 @@ class Container:
         self._postgres_health: Optional[PostgresHealthCheck] = None
         self._redis_health: Optional[RedisHealthCheck] = None
 
+        self._bot: Optional[Bot] = None
+
     # ------------------------------------------------------------------
     # BACKWARD-COMPAT API
     # ------------------------------------------------------------------
@@ -39,15 +43,6 @@ class Container:
         self.init_logging()
 
     def init_connections(self) -> None:
-        """
-        Wiring/bootstrap only.
-
-        Real lifecycle startup happens in StartupOrchestrator:
-
-            await self._c.postgres.start()
-            await self._c.redis.start()
-        """
-
         settings = self.settings
         logger = self.logger
 
@@ -61,6 +56,11 @@ class Container:
             self._redis = RedisClient(
                 url=os.environ["REDIS_URL"],
                 logger=logger,
+            )
+
+        if self._bot is None:
+            self._bot = Bot(
+                token=settings.bot_token,
             )
 
     # ------------------------------------------------------------------
@@ -136,3 +136,13 @@ class Container:
     @property
     def workers(self) -> list[Any]:
         return []
+
+    @property
+    def bot(self) -> Bot:
+        if self._bot is None:
+            self.init_connections()
+
+        if self._bot is None:
+            raise RuntimeError("Bot not initialized")
+
+        return self._bot
