@@ -1,42 +1,25 @@
 from __future__ import annotations
 
-import asyncio
-
 from bootstrap.container import Container
+from core.logging.logger import get_logger
 
 
-class StartupOrchestrator:
-    """
-    Startup phases:
-    1. Config + logging
-    2. Connections
-    3. Readiness check
-    4. Worker startup
-    """
+logger = get_logger()
 
-    def __init__(self, container: Container) -> None:
-        self._c = container
 
-    async def run(self) -> None:
-        self._c.init_config()
-        self._c.init_logging()
-        self._c.init_logger_factory()
+async def startup(container: Container) -> None:
+    logger.info("startup_enter")
 
-        self._c.init_connections()
+    logger.info("postgres_starting")
 
-        await self._c.postgres.start()
-        await self._c.redis.start()
+    await container.postgres.start()
 
-        await self._readiness()
+    logger.info("postgres_started")
 
-        await self._start_workers()
+    logger.info("redis_starting")
 
-    async def _readiness(self) -> None:
-        await asyncio.gather(
-            self._c.postgres_health.check(),
-            self._c.redis_health.check(),
-        )
+    await container.redis.start()
 
-    async def _start_workers(self) -> None:
-        for worker in self._c.workers:
-            await worker.start()
+    logger.info("redis_started")
+
+    logger.info("startup_completed")
