@@ -1,50 +1,72 @@
+from __future__ import annotations
+
 import logging
-import structlog
-from structlog.typing import FilteringBoundLogger
+import sys
 
-from core.logging.context import get_trace_id
-
-
-LOG_LEVELS = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-}
+from typing import Any
 
 
-def add_trace_id(_, __, event_dict):
-    trace_id = get_trace_id()
-    if trace_id:
-        event_dict["trace_id"] = trace_id
-    return event_dict
+class BoundLogger:
+    def __init__(
+        self,
+        logger: logging.Logger,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        self._logger = logger
+        self._context = context or {}
+
+    def bind(self, **kwargs: Any) -> "BoundLogger":
+        merged = dict(self._context)
+        merged.update(kwargs)
+
+        return BoundLogger(
+            logger=self._logger,
+            context=merged,
+        )
+
+    def _format(self, event: str, **kwargs: Any) -> str:
+        payload = dict(self._context)
+
+        if kwargs:
+            payload.update(kwargs)
+
+        if not payload:
+            return event
+
+        return f"{event} | {payload}"
+
+    def debug(self, event: str, **kwargs: Any) -> None:
+        self._logger.debug(self._format(event, **kwargs))
+
+    def info(self, event: str, **kwargs: Any) -> None:
+        self._logger.info(self._format(event, **kwargs))
+
+    def warning(self, event: str, **kwargs: Any) -> None:
+        self._logger.warning(self._format(event, **kwargs))
+
+    def error(self, event: str, **kwargs: Any) -> None:
+        self._logger.error(self._format(event, **kwargs))
+
+    def exception(self, event: str, **kwargs: Any) -> None:
+        self._logger.exception(self._format(event, **kwargs))
 
 
-def configure_logging(level: str) -> None:
-    if level not in LOG_LEVELS:
-        raise ValueError(f"Invalid log level: {level}")
+def get_logger() -> BoundLogger:
+    logger = logging.getLogger("newsmaker")
 
-    log_level = LOG_LEVELS[level]
+    if not logger.handlers:
+        logger.setLevel(logging.INFO)
 
-    logging.basicConfig(
-        format="%(message)s",
-        level=log_level,
-    )
+        handler = logging.StreamHandler(sys.stdout)
 
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            add_trace_id,
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso", utc=True),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(),
-        ],
-        wrapper_class=structlog.make_filtering_bound_logger(log_level),
-        cache_logger_on_first_use=True,
-    )
+        formatter = logging.Formatter(
+            fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        )
 
+        handler.setFormatter(formatter)
 
-def get_logger() -> FilteringBoundLogger:
-    return structlog.get_logger()
+        logger.addHandler(handler)
+
+        logger.propagate = False
+
+    return BoundLogger(logger)
