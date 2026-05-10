@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import uuid
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import BigInteger, String, Boolean, Index
 
