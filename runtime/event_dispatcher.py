@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Sequence, Protocol
 from uuid import UUID
 
 from parsers.base.models import NormalizedItem
 from infrastructure.queue.interfaces import ProducerProtocol
-
 
 class DedupService(Protocol):
     async def is_duplicate(self, item: NormalizedItem) -> bool: ...
