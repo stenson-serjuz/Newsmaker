@@ -15,9 +15,7 @@ from parsers.registry.registry import ParserRegistry
 from parsers.rss.advanced_rss_parser import AdvancedRSSParser
 
 from runtime.scheduler import Scheduler
-from runtime.parser_runner import ParserRunner
 from runtime.event_dispatcher import EventDispatcher
-
 from runtime.runtime_manager import RuntimeManager
 
 from infrastructure.queue.producer import StreamProducer
@@ -92,6 +90,12 @@ class StaticSourceService:
     async def bind_parser(self, source_id: UUID):
         return self._registry.get(self._source.parser_key)
 
+    async def get_context(self, source_id: UUID) -> ParserContext:
+        return ParserContext(
+            source_id=source_id,
+            url=self._source.url,
+        )
+
     async def mark_success(self, source_id: UUID) -> None:
         print(f"[SOURCE] success: {source_id}")
 
@@ -133,6 +137,56 @@ class EventProducer:
         )
 
         return await self._producer.publish(stream, envelope)
+
+
+# -----------------------------------------------------------------------------
+# CUSTOM PARSER RUNNER
+# -----------------------------------------------------------------------------
+
+class RSSParserRunner:
+    def __init__(
+        self,
+        source_service: StaticSourceService,
+        dispatcher,
+        logger,
+    ) -> None:
+        self._sources = source_service
+        self._dispatcher = dispatcher
+        self._logger = logger.bind(component="parser_runner")
+
+    async def run(self, source_id: UUID) -> None:
+        start = time.monotonic()
+
+        parser = await self._sources.bind_parser(source_id)
+
+        ctx = await self._sources.get_context(source_id)
+
+        try:
+            items = await parser.parse(ctx)
+
+            print(f"\n[RSS] parsed items: {len(items)}\n")
+
+            await self._dispatcher.dispatch(source_id, items)
+
+            await self._sources.mark_success(source_id)
+
+        except Exception as e:
+            await self._sources.mark_failure(source_id)
+
+            self._logger.error(
+                "parser_failed",
+                source_id=str(source_id),
+                error=str(e),
+            )
+
+        finally:
+            duration = time.monotonic() - start
+
+            self._logger.info(
+                "parser_completed",
+                source_id=str(source_id),
+                duration=duration,
+            )
 
 
 # -----------------------------------------------------------------------------
@@ -182,7 +236,7 @@ async def main() -> None:
         logger=logger,
     )
 
-    runner = ParserRunner(
+    runner = RSSParserRunner(
         source_service=source_service,
         dispatcher=dispatcher,
         logger=logger,
