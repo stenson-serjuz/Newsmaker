@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 import httpx
 
-from bootstrap.container import Container
+from redis.asyncio import Redis
 
 from parsers.base.context import ParserContext, ParserConfig
 from parsers.normalizers.normalizer import Normalizer
@@ -28,6 +28,27 @@ from contracts.events.delivery import DeliveryMetadata
 
 
 RSS_URL = "https://russian.korea.net/koreanet/rss/news/2"
+
+
+# -----------------------------------------------------------------------------
+# SIMPLE LOGGER
+# -----------------------------------------------------------------------------
+
+class SimpleLogger:
+    def bind(self, **kwargs):
+        return self
+
+    def info(self, *args, **kwargs):
+        print("[INFO]", args, kwargs)
+
+    def warning(self, *args, **kwargs):
+        print("[WARN]", args, kwargs)
+
+    def error(self, *args, **kwargs):
+        print("[ERROR]", args, kwargs)
+
+
+logger = SimpleLogger()
 
 
 # -----------------------------------------------------------------------------
@@ -121,12 +142,11 @@ class EventProducer:
 async def main() -> None:
     print("Starting RSS runtime...\n")
 
-    container = Container()
-    container.init_all()
-
-    await container.redis.start()
-
-    redis = container.redis.get()
+    redis = Redis.from_url(
+        "redis://localhost:6379",
+        encoding="utf-8",
+        decode_responses=True,
+    )
 
     registry = ParserRegistry()
 
@@ -159,13 +179,13 @@ async def main() -> None:
             StreamProducer(redis),
         ),
         dedup=NoOpDedup(),
-        logger=container.logger,
+        logger=logger,
     )
 
     runner = ParserRunner(
         source_service=source_service,
         dispatcher=dispatcher,
-        logger=container.logger,
+        logger=logger,
     )
 
     scheduler = Scheduler(
@@ -177,7 +197,7 @@ async def main() -> None:
 
     runtime = RuntimeManager(
         scheduler=scheduler,
-        logger=container.logger,
+        logger=logger,
     )
 
     await runtime.start()
