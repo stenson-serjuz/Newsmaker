@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import asyncio
 import time
 from uuid import UUID, uuid4
@@ -197,7 +198,7 @@ async def main() -> None:
     print("Starting RSS runtime...\n")
 
     redis = Redis.from_url(
-        "redis://localhost:6379",
+        os.environ["REDIS_URL"],
         encoding="utf-8",
         decode_responses=True,
     )
