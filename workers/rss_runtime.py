@@ -1,0 +1,192 @@
+from __future__ import annotations
+
+import asyncio
+import time
+from uuid import UUID, uuid4
+
+import httpx
+
+from bootstrap.container import Container
+
+from parsers.base.context import ParserContext, ParserConfig
+from parsers.normalizers.normalizer import Normalizer
+from parsers.registry.registry import ParserRegistry
+
+from parsers.rss.advanced_rss_parser import AdvancedRSSParser
+
+from runtime.scheduler import Scheduler
+from runtime.parser_runner import ParserRunner
+from runtime.event_dispatcher import EventDispatcher
+
+from runtime.runtime_manager import RuntimeManager
+
+from infrastructure.queue.producer import StreamProducer
+
+from contracts.events.envelope import EventEnvelope
+from contracts.events.retry import RetryMetadata
+from contracts.events.delivery import DeliveryMetadata
+
+
+RSS_URL = "https://russian.korea.net/koreanet/rss/news/2"
+
+
+# -----------------------------------------------------------------------------
+# STATIC SOURCE
+# -----------------------------------------------------------------------------
+
+class StaticSource:
+    def __init__(self) -> None:
+        self.id = uuid4()
+        self.is_active = True
+        self.is_degraded = False
+        self.parser_key = "advanced_rss"
+        self.url = RSS_URL
+
+
+# -----------------------------------------------------------------------------
+# SOURCE PROVIDER
+# -----------------------------------------------------------------------------
+
+class StaticSourceProvider:
+    def __init__(self, source: StaticSource) -> None:
+        self._source = source
+
+    async def list_active(self):
+        return [self._source]
+
+
+# -----------------------------------------------------------------------------
+# SOURCE SERVICE
+# -----------------------------------------------------------------------------
+
+class StaticSourceService:
+    def __init__(
+        self,
+        source: StaticSource,
+        registry: ParserRegistry,
+    ) -> None:
+        self._source = source
+        self._registry = registry
+
+    async def bind_parser(self, source_id: UUID):
+        return self._registry.get(self._source.parser_key)
+
+    async def mark_success(self, source_id: UUID) -> None:
+        print(f"[SOURCE] success: {source_id}")
+
+    async def mark_failure(self, source_id: UUID) -> None:
+        print(f"[SOURCE] failure: {source_id}")
+
+
+# -----------------------------------------------------------------------------
+# NOOP DEDUP
+# -----------------------------------------------------------------------------
+
+class NoOpDedup:
+    async def is_duplicate(self, item) -> bool:
+        return False
+
+
+# -----------------------------------------------------------------------------
+# EVENT PRODUCER WRAPPER
+# -----------------------------------------------------------------------------
+
+class EventProducer:
+    def __init__(self, producer: StreamProducer) -> None:
+        self._producer = producer
+
+    async def publish(self, stream: str, event: dict) -> str:
+        envelope = EventEnvelope(
+            schema_version=1,
+            event_id=str(uuid4()),
+            trace_id=None,
+            payload=event,
+            metadata={
+                "source": "rss_runtime",
+            },
+            retry=RetryMetadata(),
+            delivery=DeliveryMetadata(
+                shard_id=0,
+                created_at=int(time.time()),
+            ),
+        )
+
+        return await self._producer.publish(stream, envelope)
+
+
+# -----------------------------------------------------------------------------
+# MAIN
+# -----------------------------------------------------------------------------
+
+async def main() -> None:
+    print("Starting RSS runtime...\n")
+
+    container = Container()
+    container.init_all()
+
+    await container.redis.start()
+
+    redis = container.redis.get()
+
+    registry = ParserRegistry()
+
+    client = httpx.AsyncClient(
+        timeout=20.0,
+        follow_redirects=True,
+    )
+
+    registry.register(
+        "advanced_rss",
+        lambda: AdvancedRSSParser(
+            normalizer=Normalizer(),
+            client=client,
+            config=ParserConfig(
+                timeout=20.0,
+                max_items=10,
+            ),
+        ),
+    )
+
+    source = StaticSource()
+
+    source_service = StaticSourceService(
+        source=source,
+        registry=registry,
+    )
+
+    dispatcher = EventDispatcher(
+        producer=EventProducer(
+            StreamProducer(redis),
+        ),
+        dedup=NoOpDedup(),
+        logger=container.logger,
+    )
+
+    runner = ParserRunner(
+        source_service=source_service,
+        dispatcher=dispatcher,
+        logger=container.logger,
+    )
+
+    scheduler = Scheduler(
+        provider=StaticSourceProvider(source),
+        runner=runner,
+        interval=60.0,
+        concurrency=1,
+    )
+
+    runtime = RuntimeManager(
+        scheduler=scheduler,
+        logger=container.logger,
+    )
+
+    await runtime.start()
+
+    print("RSS runtime started.\n")
+
+    while True:
+        await asyncio.sleep(3600)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
