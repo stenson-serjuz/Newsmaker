@@ -20,3 +20,4 @@ class SourceModel(BaseModel):
     parser_key: str
 
     is_active: bool = True
+    is_degraded: bool = False
