@@ -4,6 +4,7 @@ import time
 from uuid import UUID
 
 from parsers.base.context import ParserContext
+
 from sources.services.source_service import SourceService
 
 
@@ -25,33 +26,39 @@ class ParserRunner:
     async def run(self, source_id: UUID) -> None:
         start = time.monotonic()
 
+        source = await self._sources._repo.get(source_id)
+
+        if not source:
+            raise ValueError("source_not_found")
+
         parser = await self._sources.bind_parser(source_id)
 
         ctx = ParserContext(
-            source_id=source_id,
-            url="",  # resolved via source repo later
+            source_id=source.id,
+            url=str(source.url),
         )
 
         try:
             items = await parser.parse(ctx)
 
-            await self._dispatcher.dispatch(source_id, items)
+            await self._dispatcher.dispatch(source.id, items)
 
-            await self._sources.mark_success(source_id)
+            await self._sources.mark_success(source.id)
 
         except Exception as e:
-            await self._sources.mark_failure(source_id)
+            await self._sources.mark_failure(source.id)
 
             self._logger.error(
                 "parser_failed",
-                source_id=str(source_id),
+                source_id=str(source.id),
                 error=str(e),
             )
 
         finally:
             duration = time.monotonic() - start
+
             self._logger.info(
                 "parser_completed",
-                source_id=str(source_id),
+                source_id=str(source.id),
                 duration=duration,
             )
