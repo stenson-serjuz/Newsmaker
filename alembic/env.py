@@ -9,6 +9,18 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
+from database.models.base import Base
+
+# Import ALL models so metadata is populated
+from database.models.chats import Chat
+from database.models.sources import Source
+from database.models.publications import Publication
+from database.models.subscriptions import Subscription
+from database.models.topics import Topic
+from database.models.outbox import Outbox
+
+from database.models.source_health import SourceHealthRecord
+
 config = context.config
 
 # --- FIX: enforce asyncpg dialect ---
@@ -30,7 +42,7 @@ if database_url.startswith("postgresql+psycopg2://"):
 
 config.set_main_option("sqlalchemy.url", database_url)
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline():
