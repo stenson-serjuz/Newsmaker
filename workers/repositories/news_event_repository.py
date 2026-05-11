@@ -63,5 +63,5 @@ class NewsEventRepository:
                 event.model_dump_json(),
                 event.metadata,
                 "received",
-                event.retry.retry_count,
+                event.retry.attempt,
             )
