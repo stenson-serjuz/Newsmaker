@@ -13,7 +13,8 @@ class SourceRecord(Protocol):
 
 
 class SourceProvider(Protocol):
-    async def list_active(self) -> Sequence[SourceRecord]: ...
+    async def list_active(self) -> Sequence[SourceRecord]:
+        ...
 
 
 class Scheduler:
@@ -47,24 +48,30 @@ class Scheduler:
             try:
                 sources = await self._provider.list_active()
 
-                print("ACTIVE SOURCES:", len(sources))
-
-            tasks = []
-            
-            for src in sources:
                 print(
-                    "SOURCE:",
-                    str(src.id),
-                    "DEGRADED:",
-                    src.is_degraded,
+                    "ACTIVE SOURCES:",
+                    len(sources),
                 )
-            
-                if not src.is_degraded:
-                    tasks.append(
-                        self._schedule_source(src)
+
+                tasks = []
+
+                for src in sources:
+                    print(
+                        "SOURCE:",
+                        str(src.id),
+                        "DEGRADED:",
+                        src.is_degraded,
                     )
-            
-            print("TASK COUNT:", len(tasks))
+
+                    if not src.is_degraded:
+                        tasks.append(
+                            self._schedule_source(src)
+                        )
+
+                print(
+                    "TASK COUNT:",
+                    len(tasks),
+                )
 
                 await asyncio.gather(
                     *tasks,
@@ -74,7 +81,10 @@ class Scheduler:
                 print("TASKS COMPLETE")
 
             except Exception as e:
-                print("SCHEDULER LOOP ERROR:", str(e))
+                print(
+                    "SCHEDULER LOOP ERROR:",
+                    str(e),
+                )
 
             elapsed = time.monotonic() - start
 
