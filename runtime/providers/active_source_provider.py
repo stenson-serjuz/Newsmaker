@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from sources.repositories.source_repository import SourceRepositoryImpl
-from sources.repositories.health_repository import HealthRepositoryImpl
+from sources.repositories.source_repository import (
+    SourceRepositoryImpl,
+)
+
+from sources.repositories.health_repository import (
+    HealthRepositoryImpl,
+)
 
 
 class ActiveSourceProvider:
@@ -31,12 +36,18 @@ class ActiveSourceProvider:
         for source in sources:
             health = await self._health.get(source.id)
 
-            source.is_degraded = (
+            degraded = (
                 health.is_degraded
                 if health
                 else False
             )
 
-            result.append(source)
+            result.append(
+                source.model_copy(
+                    update={
+                        "is_degraded": degraded,
+                    }
+                )
+            )
 
         return result
