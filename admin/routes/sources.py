@@ -92,3 +92,59 @@ async def create_source(
         url="/admin/sources",
         status_code=303,
     )
+
+
+@router.get(
+    "/admin/debug/publications",
+    response_class=HTMLResponse,
+)
+async def debug_publications(
+    request: Request,
+):
+    pool = request.app.state.pool
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT
+                id,
+                source_id,
+                external_id,
+                delivery_state,
+                retry_count
+            FROM publications
+            ORDER BY created_at DESC
+            LIMIT 50
+            """
+        )
+
+    html = """
+    <html>
+    <body>
+        <h1>Publications</h1>
+        <table border="1" cellpadding="8">
+            <tr>
+                <th>ID</th>
+                <th>Source</th>
+                <th>External ID</th>
+                <th>Status</th>
+            </tr>
+    """
+
+    for row in rows:
+        html += f"""
+        <tr>
+            <td>{row["id"]}</td>
+            <td>{row["source_id"]}</td>
+            <td>{row["external_id"]}</td>
+            <td>{row["delivery_state"]}</td>
+        </tr>
+        """
+
+    html += """
+        </table>
+    </body>
+    </html>
+    """
+
+    return HTMLResponse(content=html)
