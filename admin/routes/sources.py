@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import os
-
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from fastapi.templating import Jinja2Templates
-
-from infrastructure.db.pool import PostgresPool
 
 from sources.repositories.source_repository import (
     SourceRepositoryImpl,
@@ -28,12 +24,7 @@ templates = Jinja2Templates(
 async def list_sources(
     request: Request,
 ):
-    pool = PostgresPool(
-        dsn=os.environ["POSTGRES_DSN"],
-        logger=None,
-    )
-
-    await pool.start()
+    pool = request.app.state.pool
 
     repo = SourceRepositoryImpl(pool)
 
