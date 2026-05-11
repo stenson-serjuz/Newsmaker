@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import Sequence
+from infrastructure.db.pool import (
+    PostgresPool,
+)
 
-from infrastructure.db.pool import PostgresPool
-from infrastructure.db.transaction import transaction
+from infrastructure.db.transaction import (
+    transaction,
+)
 
 
 class EnrichmentRepository:
@@ -16,7 +19,7 @@ class EnrichmentRepository:
     async def reserve_events(
         self,
         limit: int = 10,
-    ) -> Sequence[dict]:
+    ) -> list[dict]:
         async with transaction(self._pool) as conn:
             rows = await conn.fetch(
                 """
@@ -35,7 +38,10 @@ class EnrichmentRepository:
                 limit,
             )
 
-            return [dict(r) for r in rows]
+            return [
+                dict(r)
+                for r in rows
+            ]
 
     async def complete(
         self,
@@ -46,6 +52,10 @@ class EnrichmentRepository:
         summary: str,
         language: str,
         category: str,
+        urgency: str,
+        city: str | None,
+        priority_score: int,
+        tags: list[str],
     ) -> None:
         async with transaction(self._pool) as conn:
             await conn.execute(
@@ -57,7 +67,11 @@ class EnrichmentRepository:
                     enriched_content = $3,
                     summary = $4,
                     language = $5,
-                    category = $6
+                    category = $6,
+                    urgency = $7,
+                    city = $8,
+                    priority_score = $9,
+                    tags = $10::jsonb
                 WHERE event_id = $1
                 """,
                 event_id,
@@ -66,6 +80,10 @@ class EnrichmentRepository:
                 summary,
                 language,
                 category,
+                urgency,
+                city,
+                priority_score,
+                tags,
             )
 
     async def fail(
