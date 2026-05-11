@@ -1,49 +1,129 @@
 from __future__ import annotations
 
-from contracts.events.envelope import EventEnvelope
+import html
+import re
 
 
 class TelegramFormatter:
-    def format(
-        self,
-        event: EventEnvelope,
-    ) -> str:
-        payload = event.payload
-
-        title = payload["title"]
-        content = payload["content"]
-        url = payload["url"]
-
-        return (
-            f"<b>{title}</b>\n\n"
-            f"{content[:1000]}\n\n"
-            f"<a href='{url}'>Источник</a>"
-        )
+    MAX_LENGTH = 3500
 
     def format_from_row(
         self,
         row: dict,
     ) -> str:
-        title = (
-            row["enriched_title"]
-            or row["title"]
+        title = self._clean(
+            row.get(
+                "enriched_title",
+            )
+            or row.get("title")
+            or "Без заголовка"
         )
 
-        summary = (
-            row["summary"]
-            or row["content"][:1000]
+        summary = self._clean(
+            row.get(
+                "summary",
+            )
+            or row.get(
+                "enriched_content",
+            )
+            or row.get("content")
+            or ""
         )
+
+        url = (
+            row.get("url")
+            or ""
+        ).strip()
 
         category = (
-            row["category"]
+            row.get("category")
             or "news"
         )
 
-        url = row["url"]
+        city = (
+            row.get("city")
+            or ""
+        )
+
+        urgency = (
+            row.get("urgency")
+            or "normal"
+        )
+
+        text = (
+            f"📰 <b>{title}</b>\n\n"
+        )
+
+        if city:
+            text += (
+                f"📍 {html.escape(city)}\n"
+            )
+
+        text += (
+            f"🏷 #{html.escape(category)}"
+        )
+
+        if urgency in (
+            "high",
+            "breaking",
+        ):
+            text += (
+                f"  🚨 #{html.escape(urgency)}"
+            )
+
+        text += "\n\n"
+
+        if summary:
+            text += (
+                self._truncate(summary)
+            )
+
+        if url:
+            safe_url = html.escape(url)
+
+            text += (
+                "\n\n"
+                f"🔗 "
+                f"<a href=\"{safe_url}\">"
+                f"Источник"
+                f"</a>"
+            )
+
+        return text.strip()
+
+    def _clean(
+        self,
+        value: str,
+    ) -> str:
+        value = html.escape(value)
+
+        value = re.sub(
+            r"\s+",
+            " ",
+            value,
+        )
+
+        value = re.sub(
+            r"http\S+",
+            "",
+            value,
+        )
+
+        return value.strip()
+
+    def _truncate(
+        self,
+        text: str,
+    ) -> str:
+        if len(text) <= self.MAX_LENGTH:
+            return text
 
         return (
-            f"#{category}\n\n"
-            f"<b>{title}</b>\n\n"
-            f"{summary}\n\n"
-            f"<a href='{url}'>Источник</a>"
+            text[
+                : self.MAX_LENGTH
+            ].rsplit(
+                " ",
+                1,
+            )[0]
+            + "..."
         )
