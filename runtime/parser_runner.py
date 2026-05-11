@@ -41,6 +41,12 @@ class ParserRunner:
         try:
             items = await parser.parse(ctx)
 
+            self._logger.info(
+                "parser_items_parsed",
+                source_id=str(source_id),
+                count=len(items),
+            )
+            
             await self._dispatcher.dispatch(source.id, items)
 
             await self._sources.mark_success(source.id)
