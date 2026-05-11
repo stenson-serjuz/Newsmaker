@@ -11,14 +11,19 @@ from fastapi.templating import Jinja2Templates
 
 from infrastructure.db.pool import PostgresPool
 
+from core.logging.logger import get_logger
+
 from admin.routes.sources import router as sources_router
+
+
+logger = get_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     pool = PostgresPool(
         dsn=os.environ["POSTGRES_DSN"],
-        logger=None,
+        logger=logger,
     )
 
     await pool.start()
