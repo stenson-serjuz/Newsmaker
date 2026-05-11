@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Sequence, Protocol
 from uuid import UUID
 
+from contracts.events.envelope import EventEnvelope
+
 from parsers.base.models import NormalizedItem
 from infrastructure.queue.interfaces import ProducerProtocol
 
@@ -44,10 +46,13 @@ class EventDispatcher:
             count=len(items),
         )
 
-    def _build_event(self, item: NormalizedItem):
-        return {
-            "source_id": str(item.source_id),
-            "external_id": item.external_id,
-            "content": item.content,
-            "hash": item.content_hash,
-        }
+    def _build_event(
+        self,
+        item: NormalizedItem,
+    ) -> EventEnvelope:
+        return EventEnvelope(
+            source_id=str(item.source_id),
+            external_id=item.external_id,
+            content=item.content,
+            hash=item.content_hash,
+        )
