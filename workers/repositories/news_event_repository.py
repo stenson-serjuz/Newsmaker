@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from infrastructure.db.pool import PostgresPool
 from infrastructure.db.transaction import transaction
 
@@ -60,8 +62,12 @@ class NewsEventRepository:
                 payload["content"],
                 payload["url"],
                 payload["content_hash"],
-                event.model_dump_json(),
-                event.metadata,
+                json.dumps(
+                    event.model_dump(mode="json")
+                ),
+                json.dumps(
+                    dict(event.metadata)
+                ),
                 "received",
                 event.retry.attempt,
             )
