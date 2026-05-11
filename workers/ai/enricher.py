@@ -20,20 +20,49 @@ class AIEnricher:
         content: str,
     ) -> dict:
         prompt = f"""
-You are a professional news editor.
+You are an AI news intelligence engine.
+
+Analyze the news and return JSON.
 
 Tasks:
 1. Rewrite headline professionally
 2. Create concise summary
 3. Detect language
 4. Detect category
+5. Detect urgency
+6. Detect city
+7. Generate tags
+8. Assign priority score from 0 to 100
+
+Allowed urgency:
+- low
+- medium
+- high
+- breaking
+
+Allowed categories:
+- jobs
+- visa
+- immigration
+- crime
+- alerts
+- community
+- accident
+- politics
+- weather
+- news
 
 Return JSON:
+
 {{
   "title": "...",
   "summary": "...",
   "language": "...",
-  "category": "..."
+  "category": "...",
+  "urgency": "...",
+  "city": "...",
+  "priority_score": 0,
+  "tags": ["..."]
 }}
 
 News title:
@@ -77,4 +106,8 @@ News content:
             "summary": data["summary"],
             "language": data["language"],
             "category": data["category"],
+            "urgency": data["urgency"],
+            "city": data["city"],
+            "priority_score": data["priority_score"],
+            "tags": data["tags"],
         }
