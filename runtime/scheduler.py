@@ -49,11 +49,22 @@ class Scheduler:
 
                 print("ACTIVE SOURCES:", len(sources))
 
-                tasks = [
-                    self._schedule_source(src)
-                    for src in sources
-                    if not src.is_degraded
-                ]
+            tasks = []
+            
+            for src in sources:
+                print(
+                    "SOURCE:",
+                    str(src.id),
+                    "DEGRADED:",
+                    src.is_degraded,
+                )
+            
+                if not src.is_degraded:
+                    tasks.append(
+                        self._schedule_source(src)
+                    )
+            
+            print("TASK COUNT:", len(tasks))
 
                 await asyncio.gather(
                     *tasks,
