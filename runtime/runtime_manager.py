@@ -24,9 +24,22 @@ class RuntimeManager:
 
     async def start(self) -> None:
         self._logger.info("runtime_start")
+    
+        self._task = asyncio.create_task(
+            self._run_scheduler()
+        )
 
-        self._task = asyncio.create_task(self._scheduler.start())
-
+    async def _run_scheduler(self) -> None:
+        try:
+            await self._scheduler.start()
+    
+        except Exception as e:
+            self._logger.exception(
+                "scheduler_crashed",
+                error=str(e),
+            )
+            raise
+    
     async def stop(self) -> None:
         self._logger.info("runtime_stop")
 
