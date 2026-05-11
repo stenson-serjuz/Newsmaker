@@ -14,7 +14,7 @@ class SubscriptionStateEnum(str, Enum):
 
 
 class SourceTypeEnum(str, Enum):
-    RSS = "rss"
+    RSS = "RSS"
     CITY = "city"
     GOVERNMENT = "government"
 
