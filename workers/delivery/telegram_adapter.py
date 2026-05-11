@@ -19,4 +19,5 @@ class TelegramAdapter:
             chat_id=int(target),
             text=text,
             parse_mode="HTML",
+            disable_web_page_preview=False,
         )
