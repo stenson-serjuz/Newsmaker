@@ -37,7 +37,6 @@ async def main() -> None:
         stream="events_stream",
         group="persistence_group",
         consumer_name="persistence_worker",
-        logger=logger,
     )
 
     repo = NewsEventRepository(pool)
