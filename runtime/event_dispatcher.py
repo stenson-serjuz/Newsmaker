@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Sequence, Protocol
 from uuid import UUID
 
+from uuid import uuid4
+
 from contracts.events.envelope import EventEnvelope
+from contracts.events.retry import RetryMetadata
+from contracts.events.delivery import DeliveryMetadata
 
 from parsers.base.models import NormalizedItem
 from infrastructure.queue.interfaces import ProducerProtocol
@@ -51,8 +55,23 @@ class EventDispatcher:
         item: NormalizedItem,
     ) -> EventEnvelope:
         return EventEnvelope(
-            source_id=str(item.source_id),
-            external_id=item.external_id,
-            content=item.content,
-            hash=item.content_hash,
+            schema_version=1,
+            event_id=str(uuid4()),
+            trace_id=None,
+            payload={
+                "source_id": str(item.source_id),
+                "external_id": item.external_id,
+                "content": item.content,
+                "hash": item.content_hash,
+            },
+            metadata={
+                "parser": item.parser_name,
+            },
+            retry=RetryMetadata(
+                attempt=0,
+                max_attempts=3,
+            ),
+            delivery=DeliveryMetadata(
+                stream="events_stream",
+            ),
         )
