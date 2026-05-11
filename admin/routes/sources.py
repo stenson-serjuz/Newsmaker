@@ -113,7 +113,7 @@ async def debug_publications(
                 delivery_state,
                 retry_count
             FROM publications
-            ORDER BY created_at DESC
+            ORDER BY id DESC
             LIMIT 50
             """
         )
