@@ -40,38 +40,95 @@ class Scheduler:
 
     async def start(self) -> None:
         while not self._stop.is_set():
+            print("SCHEDULER TICK")
+
             start = time.monotonic()
 
-            sources = await self._provider.list_active()
+            try:
+                sources = await self._provider.list_active()
 
-            tasks = [
-                self._schedule_source(src)
-                for src in sources
-                if not src.is_degraded
-            ]
+                print("ACTIVE SOURCES:", len(sources))
 
-            await asyncio.gather(*tasks, return_exceptions=True)
+                tasks = [
+                    self._schedule_source(src)
+                    for src in sources
+                    if not src.is_degraded
+                ]
+
+                await asyncio.gather(
+                    *tasks,
+                    return_exceptions=True,
+                )
+
+                print("TASKS COMPLETE")
+
+            except Exception as e:
+                print("SCHEDULER LOOP ERROR:", str(e))
 
             elapsed = time.monotonic() - start
-            sleep = max(0, self._interval - elapsed)
+
+            sleep = max(
+                0,
+                self._interval - elapsed,
+            )
+
             await asyncio.sleep(sleep)
 
     async def stop(self) -> None:
         self._stop.set()
 
-    async def _schedule_source(self, src: SourceRecord) -> None:
+    async def _schedule_source(
+        self,
+        src: SourceRecord,
+    ) -> None:
         now = time.monotonic()
 
-        backoff_until = self._backoff.get(src.id, 0)
+        backoff_until = self._backoff.get(
+            src.id,
+            0,
+        )
+
         if now < backoff_until:
+            print(
+                "SOURCE IN BACKOFF:",
+                str(src.id),
+            )
             return
 
         async with self._sem:
             try:
+                print(
+                    "RUNNING SOURCE:",
+                    str(src.id),
+                )
+
                 await self._runner.run(src.id)
-                self._backoff.pop(src.id, None)
-            except Exception:
+
+                self._backoff.pop(
+                    src.id,
+                    None,
+                )
+
+                print(
+                    "SOURCE COMPLETED:",
+                    str(src.id),
+                )
+
+            except Exception as e:
+                print(
+                    "SOURCE FAILED:",
+                    str(src.id),
+                    str(e),
+                )
+
                 # exponential backoff
-                delay = self._backoff.get(src.id, 1.0) * 2
+                delay = (
+                    self._backoff.get(src.id, 1.0)
+                    * 2
+                )
+
                 delay = min(delay, 300)
-                self._backoff[src.id] = now + delay
+
+                self._backoff[src.id] = (
+                    now + delay
+                )
