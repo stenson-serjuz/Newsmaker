@@ -39,6 +39,8 @@ async def main() -> None:
         consumer_name="persistence_worker",
     )
 
+    await consumer.start()
+    
     repo = NewsEventRepository(pool)
 
     logger.info("persistence_worker_started")
