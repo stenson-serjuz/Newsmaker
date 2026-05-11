@@ -21,10 +21,6 @@ from workers.repositories.event_processing_repository import (
     EventProcessingRepository,
 )
 
-from workers.repositories.subscription_repository import (
-    SubscriptionRepository,
-)
-
 from workers.repositories.delivery_repository import (
     DeliveryRepository,
 )
@@ -33,12 +29,25 @@ from workers.repositories.dead_letter_repository import (
     DeadLetterRepository,
 )
 
+from workers.repositories.delivery_target_repository import (
+    DeliveryTargetRepository,
+)
+
 from workers.services.retry_policy import (
     RetryPolicy,
 )
 
-from workers.telegram.sender import TelegramSender
-from workers.telegram.formatter import TelegramFormatter
+from workers.delivery.router import (
+    DeliveryRouter,
+)
+
+from workers.delivery.telegram_adapter import (
+    TelegramAdapter,
+)
+
+from workers.telegram.formatter import (
+    TelegramFormatter,
+)
 
 
 logger = get_logger()
@@ -56,17 +65,23 @@ async def main() -> None:
         token=os.environ["BOT_TOKEN"],
     )
 
-    sender = TelegramSender(bot)
+    telegram = TelegramAdapter(bot)
 
     formatter = TelegramFormatter()
 
     events = EventProcessingRepository(pool)
 
-    subscriptions = SubscriptionRepository(pool)
-
     delivery = DeliveryRepository(pool)
 
     dead_letter = DeadLetterRepository(pool)
+
+    target_repo = DeliveryTargetRepository(
+        pool,
+    )
+
+    router = DeliveryRouter(
+        target_repo,
+    )
 
     policy = RetryPolicy()
 
@@ -87,19 +102,47 @@ async def main() -> None:
             await asyncio.sleep(3)
             continue
 
-        chat_ids = (
-            await subscriptions.get_active_chat_ids()
-        )
-
         for row in reserved:
             started = time.monotonic()
 
             try:
-                text = formatter.format_from_row(row)
+                text = formatter.format_from_row(
+                    row,
+                )
 
-                for chat_id in chat_ids:
-                    await sender.send(
-                        chat_id=chat_id,
+                targets = await router.resolve(
+                    category=row.get(
+                        "category",
+                    ),
+                    language=row.get(
+                        "language",
+                    ),
+                    tariff="free",
+                )
+
+                if not targets:
+                    logger.warning(
+                        "no_delivery_targets",
+                        event_id=row["event_id"],
+                    )
+
+                    await events.mark_failed(
+                        row["event_id"],
+                    )
+
+                    continue
+
+                for target in targets:
+                    if (
+                        target["target_type"]
+                        != "telegram"
+                    ):
+                        continue
+
+                    await telegram.send(
+                        target=target[
+                            "target_key"
+                        ],
                         text=text,
                     )
 
@@ -122,6 +165,7 @@ async def main() -> None:
                 logger.info(
                     "telegram_delivery_success",
                     event_id=row["event_id"],
+                    target_count=len(targets),
                 )
 
             except Exception as e:
@@ -159,8 +203,12 @@ async def main() -> None:
                     )
 
                     next_retry_at = (
-                        datetime.now(timezone.utc)
-                        + timedelta(seconds=delay)
+                        datetime.now(
+                            timezone.utc,
+                        )
+                        + timedelta(
+                            seconds=delay,
+                        )
                     )
 
                     await events.mark_retry(
