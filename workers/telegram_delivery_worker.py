@@ -5,6 +5,12 @@ import os
 import time
 import uuid
 
+from datetime import (
+    datetime,
+    timedelta,
+    timezone,
+)
+
 from aiogram import Bot
 
 from core.logging.logger import get_logger
@@ -21,6 +27,14 @@ from workers.repositories.subscription_repository import (
 
 from workers.repositories.delivery_repository import (
     DeliveryRepository,
+)
+
+from workers.repositories.dead_letter_repository import (
+    DeadLetterRepository,
+)
+
+from workers.services.retry_policy import (
+    RetryPolicy,
 )
 
 from workers.telegram.sender import TelegramSender
@@ -51,6 +65,10 @@ async def main() -> None:
     subscriptions = SubscriptionRepository(pool)
 
     delivery = DeliveryRepository(pool)
+
+    dead_letter = DeadLetterRepository(pool)
+
+    policy = RetryPolicy()
 
     worker_id = str(uuid.uuid4())
 
@@ -107,20 +125,62 @@ async def main() -> None:
                 )
 
             except Exception as e:
-                await events.mark_failed(
-                    row["event_id"],
+                retry_count = (
+                    row["retry_count"] + 1
                 )
 
-                await delivery.mark_failed(
-                    row["event_id"],
-                    str(e),
-                )
+                if policy.should_dead_letter(
+                    retry_count,
+                ):
+                    await dead_letter.move_to_dead_letter(
+                        event_id=row["event_id"],
+                        payload=row,
+                        error=str(e),
+                    )
 
-                logger.error(
-                    "telegram_delivery_failed",
-                    event_id=row["event_id"],
-                    error=str(e),
-                )
+                    await events.mark_failed(
+                        row["event_id"],
+                    )
+
+                    await delivery.mark_failed(
+                        row["event_id"],
+                        str(e),
+                    )
+
+                    logger.error(
+                        "event_moved_to_dead_letter",
+                        event_id=row["event_id"],
+                        error=str(e),
+                    )
+
+                else:
+                    delay = policy.next_delay(
+                        retry_count,
+                    )
+
+                    next_retry_at = (
+                        datetime.now(timezone.utc)
+                        + timedelta(seconds=delay)
+                    )
+
+                    await events.mark_retry(
+                        event_id=row["event_id"],
+                        retry_count=retry_count,
+                        next_retry_at=next_retry_at,
+                        error=str(e),
+                    )
+
+                    await delivery.mark_failed(
+                        row["event_id"],
+                        str(e),
+                    )
+
+                    logger.warning(
+                        "event_retry_scheduled",
+                        event_id=row["event_id"],
+                        retry_count=retry_count,
+                        delay=delay,
+                    )
 
 
 if __name__ == "__main__":
