@@ -99,6 +99,9 @@ class EventDispatcher:
                 max_retries=3,
             ),
             delivery=DeliveryMetadata(
-                status="pending",
+                shard_id=0,
+                created_at=int(
+                    item.fetched_at.timestamp()
+                ),
             ),
         )
