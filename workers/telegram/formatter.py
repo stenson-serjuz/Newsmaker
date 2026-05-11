@@ -19,3 +19,13 @@ class TelegramFormatter:
             f"{content[:1000]}\n\n"
             f"<a href='{url}'>Источник</a>"
         )
+
+    def format_from_row(
+        self,
+        row: dict,
+    ) -> str:
+        return (
+            f"<b>{row['title']}</b>\n\n"
+            f"{row['content'][:1000]}\n\n"
+            f"<a href='{row['url']}'>Источник</a>"
+        )
