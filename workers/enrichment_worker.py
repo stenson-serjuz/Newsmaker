@@ -57,6 +57,12 @@ async def main() -> None:
                     summary=result["summary"],
                     language=result["language"],
                     category=result["category"],
+                    urgency=result["urgency"],
+                    city=result["city"],
+                    priority_score=result[
+                        "priority_score"
+                    ],
+                    tags=result["tags"],
                 )
 
                 logger.info(
