@@ -35,17 +35,15 @@ class SourceRepositoryImpl:
                 """
                 INSERT INTO sources (
                     id,
-                    tenant_id,
                     name,
                     type,
                     url,
                     parser,
                     is_active
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 """,
                 source.id,
-                source.tenant_id,
                 source.name,
                 source.type.value,
                 str(source.url),
@@ -86,7 +84,6 @@ class SourceRepositoryImpl:
                 """
                 SELECT
                     id,
-                    tenant_id,
                     name,
                     type,
                     url,
@@ -103,7 +100,6 @@ class SourceRepositoryImpl:
 
         return SourceModel(
             id=row["id"],
-            tenant_id=row["tenant_id"],
             name=row["name"],
             type=SourceTypeEnum(row["type"]),
             url=row["url"],
@@ -114,7 +110,6 @@ class SourceRepositoryImpl:
     async def exists_by_url(
         self,
         url: str,
-        tenant_id,
     ) -> bool:
         async with transaction(self._pool) as conn:
             row = await conn.fetchrow(
@@ -122,11 +117,9 @@ class SourceRepositoryImpl:
                 SELECT 1
                 FROM sources
                 WHERE url = $1
-                  AND tenant_id IS NOT DISTINCT FROM $2
                 LIMIT 1
                 """,
                 url,
-                tenant_id,
             )
 
         return row is not None
@@ -137,7 +130,6 @@ class SourceRepositoryImpl:
                 """
                 SELECT
                     id,
-                    tenant_id,
                     name,
                     type,
                     url,
@@ -151,7 +143,6 @@ class SourceRepositoryImpl:
         return [
             SourceModel(
                 id=row["id"],
-                tenant_id=row["tenant_id"],
                 name=row["name"],
                 type=SourceTypeEnum(row["type"]),
                 url=row["url"],
