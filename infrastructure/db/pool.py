@@ -118,6 +118,16 @@ class PostgresPool:
             )
             raise
 
+    @asynccontextmanager
+    async def connection(self) -> AsyncIterator[asyncpg.Connection]:
+        """
+        Compatibility layer for repositories expecting
+        pool.connection() interface.
+        """
+
+        async with self.acquire() as conn:
+            yield conn
+    
     def metrics(self) -> dict[str, Any]:
         """
         Pool observability metrics.
