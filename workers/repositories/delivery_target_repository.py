@@ -18,6 +18,7 @@ class DeliveryTargetRepository:
         *,
         category: str | None,
         language: str | None,
+        tariff: str | None,
     ) -> Sequence[dict]:
         async with transaction(self._pool) as conn:
             rows = await conn.fetch(
@@ -34,9 +35,14 @@ class DeliveryTargetRepository:
                         language = $2
                         OR language IS NULL
                     )
+                    AND (
+                        tariff = $3
+                        OR tariff IS NULL
+                    )
                 """,
                 category,
                 language,
+                tariff,
             )
 
             return [
