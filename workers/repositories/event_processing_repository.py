@@ -72,3 +72,27 @@ class EventProcessingRepository:
                 """,
                 event_id,
             )
+
+    async def mark_retry(
+        self,
+        event_id: str,
+        retry_count: int,
+        next_retry_at,
+        error: str,
+    ) -> None:
+        async with transaction(self._pool) as conn:
+            await conn.execute(
+                """
+                UPDATE news_events
+                SET
+                    delivery_status = 'retry',
+                    retry_count = $2,
+                    next_retry_at = $3,
+                    last_error = $4
+                WHERE event_id = $1
+                """,
+                event_id,
+                retry_count,
+                next_retry_at,
+                error,
+            )
