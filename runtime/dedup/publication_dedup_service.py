@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from parsers.base.models import NormalizedItem
 
 from infrastructure.db.pool import PostgresPool
@@ -49,14 +51,16 @@ class PublicationDedupService:
             await conn.execute(
                 """
                 INSERT INTO publications (
+                    id,
                     source_id,
                     external_id,
                     content_hash,
                     delivery_state,
                     retry_count
                 )
-                VALUES ($1, $2, $3, $4, $5)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 """,
+                str(uuid.uuid4()),
                 str(item.source_id),
                 item.external_id,
                 item.content_hash,
