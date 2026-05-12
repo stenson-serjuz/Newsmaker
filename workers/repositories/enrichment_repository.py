@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from infrastructure.db.pool import (
     PostgresPool,
 )
@@ -20,7 +22,9 @@ class EnrichmentRepository:
         self,
         limit: int = 10,
     ) -> list[dict]:
-        async with transaction(self._pool) as conn:
+        async with transaction(
+            self._pool,
+        ) as conn:
             rows = await conn.fetch(
                 """
                 UPDATE news_events
@@ -57,7 +61,9 @@ class EnrichmentRepository:
         priority_score: int,
         tags: list[str],
     ) -> None:
-        async with transaction(self._pool) as conn:
+        async with transaction(
+            self._pool,
+        ) as conn:
             await conn.execute(
                 """
                 UPDATE news_events
@@ -83,14 +89,16 @@ class EnrichmentRepository:
                 urgency,
                 city,
                 priority_score,
-                tags,
+                json.dumps(tags),
             )
 
     async def fail(
         self,
         event_id: str,
     ) -> None:
-        async with transaction(self._pool) as conn:
+        async with transaction(
+            self._pool,
+        ) as conn:
             await conn.execute(
                 """
                 UPDATE news_events
