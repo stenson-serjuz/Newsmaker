@@ -231,6 +231,7 @@ async def main() -> None:
                         event_id=row["event_id"],
                         retry_count=retry_count,
                         delay=delay,
+                        error=str(e),
                     )
 
 
