@@ -144,6 +144,9 @@ async def main() -> None:
                             "target_key"
                         ],
                         text=text,
+                        media_url=row.get(
+                            "media_url",
+                        ),
                     )
 
                 latency = int(
