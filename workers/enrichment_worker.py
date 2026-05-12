@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
-from core.logging.logger import get_logger
+from core.logging.logger import (
+    get_logger,
+)
 
-from infrastructure.db.pool import PostgresPool
+from infrastructure.db.pool import (
+    PostgresPool,
+)
 
 from workers.repositories.enrichment_repository import (
     EnrichmentRepository,
 )
 
-from workers.ai.enricher import AIEnricher
+from workers.ai.enricher import (
+    AIEnricher,
+)
 
 
 logger = get_logger()
@@ -18,13 +25,17 @@ logger = get_logger()
 
 async def main() -> None:
     pool = PostgresPool(
-        dsn="YOUR_DSN",
+        dsn=os.environ[
+            "POSTGRES_DSN"
+        ],
         logger=logger,
     )
 
     await pool.start()
 
-    repo = EnrichmentRepository(pool)
+    repo = EnrichmentRepository(
+        pool,
+    )
 
     enricher = AIEnricher()
 
@@ -33,7 +44,9 @@ async def main() -> None:
     )
 
     while True:
-        rows = await repo.reserve_events()
+        rows = await (
+            repo.reserve_events()
+        )
 
         if not rows:
             await asyncio.sleep(3)
@@ -41,9 +54,11 @@ async def main() -> None:
 
         for row in rows:
             try:
-                result = await enricher.enrich(
-                    title=row["title"],
-                    content=row["content"],
+                result = await (
+                    enricher.enrich(
+                        title=row["title"],
+                        content=row["content"],
+                    )
                 )
 
                 await repo.complete(
@@ -54,10 +69,18 @@ async def main() -> None:
                     enriched_content=result[
                         "enriched_content"
                     ],
-                    summary=result["summary"],
-                    language=result["language"],
-                    category=result["category"],
-                    urgency=result["urgency"],
+                    summary=result[
+                        "summary"
+                    ],
+                    language=result[
+                        "language"
+                    ],
+                    category=result[
+                        "category"
+                    ],
+                    urgency=result[
+                        "urgency"
+                    ],
                     city=result["city"],
                     priority_score=result[
                         "priority_score"
@@ -67,12 +90,21 @@ async def main() -> None:
 
                 logger.info(
                     "event_enriched",
-                    event_id=row["event_id"],
+                    event_id=row[
+                        "event_id"
+                    ],
                 )
 
             except Exception:
                 await repo.fail(
                     row["event_id"],
+                )
+
+                logger.exception(
+                    "event_enrichment_failed",
+                    event_id=row[
+                        "event_id"
+                    ],
                 )
 
 
