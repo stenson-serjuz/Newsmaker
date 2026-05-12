@@ -11,7 +11,7 @@ DEFAULT_IMAGE = (
     .resolve()
     .parent.parent.parent
     / "assets"
-    / "default_news.jpg"
+    / "default_news.png"
 )
 
 
