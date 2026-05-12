@@ -9,12 +9,16 @@ from openai import AsyncOpenAI
 
 class AIEnricher:
     def __init__(self) -> None:
-        self._client = AsyncOpenAI(
-            api_key=os.environ.get(
-                "OPENAI_API_KEY",
-                "",
-            ),
+        self._api_key = os.environ.get(
+            "OPENAI_API_KEY",
         )
+
+        self._client = None
+
+        if self._api_key:
+            self._client = AsyncOpenAI(
+                api_key=self._api_key,
+            )
 
     async def enrich(
         self,
@@ -22,9 +26,7 @@ class AIEnricher:
         title: str,
         content: str,
     ) -> dict:
-        if not os.environ.get(
-            "OPENAI_API_KEY",
-        ):
+        if not self._client:
             return self._fallback(
                 title=title,
                 content=content,
@@ -124,7 +126,9 @@ News content:
         title: str,
         content: str,
     ) -> dict:
-        cleaned = self._clean(content)
+        cleaned = self._clean(
+            content,
+        )
 
         summary = cleaned[:500]
 
