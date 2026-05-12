@@ -5,6 +5,13 @@ from pathlib import Path
 from aiogram import Bot
 from aiogram.types import FSInputFile
 
+from core.logging.logger import (
+    get_logger,
+)
+
+
+logger = get_logger()
+
 
 DEFAULT_IMAGE = (
     Path(__file__)
@@ -41,8 +48,12 @@ class TelegramAdapter:
 
                 return
 
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "telegram_media_fallback",
+                    error=str(e),
+                    media_url=media_url,
+                )
 
         await self._bot.send_photo(
             chat_id=int(target),
